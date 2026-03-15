@@ -45,7 +45,7 @@ export function settleCriticalDay(
 
   newState.player = applyStatChanges(newState.player, { health: -1 });
 
-  const dayResult = advanceCriticalDay(newState.criticalPeriod);
+  const dayResult = advanceCriticalDay(newState.criticalPeriod!);
   if (dayResult.isComplete) {
     newState.timeMode = "quarterly";
     newState.criticalPeriod = null;
