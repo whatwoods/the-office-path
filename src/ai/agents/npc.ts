@@ -57,6 +57,7 @@ function buildUserPrompt(
   worldContext: WorldAgentOutput,
   eventContext: EventAgentOutput,
   playerActions: ActionAllocation[],
+  playerContext?: string,
 ): string {
   const npcProfiles = input.state.npcs
     .filter((npc) => npc.isActive)
@@ -91,6 +92,7 @@ function buildUserPrompt(
 ${npcProfiles || "无"}
 
 本季度玩家行动：${actions || "无"}
+${playerContext ? `\n关键期玩家选择：${playerContext}` : ""}
 
 本季度事件：
 ${events || "无"}
@@ -103,12 +105,19 @@ export async function runNPCAgent(
   worldContext: WorldAgentOutput,
   eventContext: EventAgentOutput,
   playerActions: ActionAllocation[],
+  playerContext?: string,
 ): Promise<NPCAgentOutput> {
   const { output } = await generateText({
     model: getModel(AGENT_MODELS.npc),
     output: Output.object({ schema: NPCAgentOutputSchema }),
     system: buildSystemPrompt(input),
-    prompt: buildUserPrompt(input, worldContext, eventContext, playerActions),
+    prompt: buildUserPrompt(
+      input,
+      worldContext,
+      eventContext,
+      playerActions,
+      playerContext,
+    ),
   });
 
   return output!;

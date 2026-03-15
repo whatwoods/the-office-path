@@ -110,4 +110,21 @@ describe("runNPCAgent", () => {
     expect(call.prompt).toContain("socialize");
     expect(call.prompt).toContain("团建");
   });
+
+  it("includes free-text player context when provided", async () => {
+    mockedGenerateText.mockResolvedValueOnce({
+      output: { npcActions: [], chatMessages: [] },
+    } as never);
+
+    await runNPCAgent(
+      makeInput(),
+      worldContext,
+      eventContext,
+      [],
+      "玩家选择了：认真听培训（学习）",
+    );
+
+    const call = mockedGenerateText.mock.calls[0][0] as { prompt: string };
+    expect(call.prompt).toContain("玩家选择了：认真听培训（学习）");
+  });
 });
