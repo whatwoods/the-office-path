@@ -53,5 +53,6 @@ export interface NPCAgentOutput {
 
 export interface NarrativeAgentOutput {
   narrative: string;
+  narrativeSummary?: string;
   choices?: CriticalChoice[];
 }
