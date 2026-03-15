@@ -140,6 +140,7 @@ describe("runQuarterlyPipeline", () => {
       expect.objectContaining({ economy: "stable" }),
       expect.objectContaining({ events: expect.any(Array) }),
       expect.any(Array),
+      undefined
     );
   });
 

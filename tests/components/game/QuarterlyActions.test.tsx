@@ -1,0 +1,118 @@
+import { describe, expect, it, beforeEach, vi, type Mock } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { QuarterlyActions } from '@/components/game/QuarterlyActions'
+import type { ActionAllocation } from '@/types/actions'
+
+describe('QuarterlyActions', () => {
+  let allocations: ActionAllocation[]
+  let onAllocate: Mock<(allocation: ActionAllocation) => void>
+  let onDeallocate: Mock<(index: number) => void>
+
+  beforeEach(() => {
+    allocations = []
+    onAllocate = vi.fn<(allocation: ActionAllocation) => void>()
+    onDeallocate = vi.fn<(index: number) => void>()
+  })
+
+  it('renders Phase 1 action cards', () => {
+    render(
+      <QuarterlyActions
+        phase={1}
+        level="L3"
+        allocations={allocations}
+        staminaUsed={0}
+        staminaMax={10}
+        npcs={[]}
+        onAllocate={onAllocate}
+        onDeallocate={onDeallocate}
+      />,
+    )
+    expect(screen.getByText('埋头工作')).toBeDefined()
+    expect(screen.getByText('学习充电')).toBeDefined()
+    expect(screen.getByText('摸鱼休息')).toBeDefined()
+  })
+
+  it('shows resign button only at L6+', () => {
+    const { rerender } = render(
+      <QuarterlyActions
+        phase={1}
+        level="L3"
+        allocations={allocations}
+        staminaUsed={0}
+        staminaMax={10}
+        npcs={[]}
+        onAllocate={onAllocate}
+        onDeallocate={onDeallocate}
+      />,
+    )
+    expect(screen.queryByText('辞职创业')).toBeNull()
+
+    rerender(
+      <QuarterlyActions
+        phase={1}
+        level="L6_tech"
+        allocations={allocations}
+        staminaUsed={0}
+        staminaMax={10}
+        npcs={[]}
+        onAllocate={onAllocate}
+        onDeallocate={onDeallocate}
+      />,
+    )
+    expect(screen.getByText('辞职创业')).toBeDefined()
+  })
+
+  it('calls onAllocate when card is clicked', async () => {
+    const user = userEvent.setup()
+    render(
+      <QuarterlyActions
+        phase={1}
+        level="L3"
+        allocations={allocations}
+        staminaUsed={0}
+        staminaMax={10}
+        npcs={[]}
+        onAllocate={onAllocate}
+        onDeallocate={onDeallocate}
+      />,
+    )
+
+    await user.click(screen.getByText('埋头工作'))
+    expect(onAllocate).toHaveBeenCalledWith({ action: 'work_hard' })
+  })
+
+  it('disables cards when stamina is full', () => {
+    render(
+      <QuarterlyActions
+        phase={1}
+        level="L3"
+        allocations={allocations}
+        staminaUsed={10}
+        staminaMax={10}
+        npcs={[]}
+        onAllocate={onAllocate}
+        onDeallocate={onDeallocate}
+      />,
+    )
+    const btn = screen.getByText('埋头工作').closest('button')
+    expect(btn?.disabled).toBe(true)
+  })
+
+  it('renders Phase 2 action cards', () => {
+    render(
+      <QuarterlyActions
+        phase={2}
+        level="L6_tech"
+        allocations={allocations}
+        staminaUsed={0}
+        staminaMax={10}
+        npcs={[]}
+        onAllocate={onAllocate}
+        onDeallocate={onDeallocate}
+      />,
+    )
+    expect(screen.getByText('打磨产品')).toBeDefined()
+    expect(screen.getByText('团队管理')).toBeDefined()
+  })
+})

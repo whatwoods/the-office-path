@@ -109,6 +109,8 @@ const PhoneMessageSchema = z.object({
   app: PhoneAppSchema,
   sender: z.string(),
   content: z.string(),
+  replyOptions: z.array(z.string()).optional(),
+  selectedReply: z.string().optional(),
   read: z.boolean(),
   quarter: z.number(),
 });
@@ -119,6 +121,7 @@ const GameEventSchema = z.object({
   description: z.string(),
   severity: z.enum(["low", "medium", "high", "critical"]),
   triggersCritical: z.boolean(),
+  criticalType: CriticalPeriodTypeSchema.optional(),
   durationDays: z.number().int().positive().optional(),
   statChanges: PartialAttributesSchema,
 });

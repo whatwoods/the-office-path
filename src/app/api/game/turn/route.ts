@@ -45,9 +45,8 @@ export async function POST(request: Request) {
         success: true,
         state: result.state,
         narrative: result.narrative,
-        nextChoices: result.nextChoices,
+        nextChoices: result.nextChoices ?? [],
         isComplete: result.isComplete,
-        npcActions: result.npcActions,
       });
     }
 
@@ -63,12 +62,10 @@ export async function POST(request: Request) {
       success: true,
       state: result.state,
       narrative: result.narrative,
-      worldContext: result.worldContext,
       events: result.events,
-      npcActions: result.npcActions,
-      phoneMessages: result.phoneMessages,
-      performanceRating: result.performanceRating,
-      salaryChange: result.salaryChange,
+      performanceRating: result.performanceRating ?? null,
+      salaryChange: result.salaryChange ?? null,
+      criticalChoices: result.criticalChoices ?? [],
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

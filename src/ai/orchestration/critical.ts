@@ -3,6 +3,7 @@ import { runNarrativeAgent } from "@/ai/agents/narrative";
 import { runNPCAgent } from "@/ai/agents/npc";
 import { validateChoices, validateNPCActions } from "@/ai/orchestration/conflict";
 import { getRecentHistory } from "@/ai/orchestration/history";
+import { buildPhoneReplyContext } from "@/ai/orchestration/phone-context";
 import { applyStatChanges } from "@/engine/attributes";
 import { settleCriticalDay } from "@/engine/critical-day";
 import type { CriticalChoice } from "@/types/actions";
@@ -75,7 +76,12 @@ export async function runCriticalDayPipeline(
     newsItems: [],
   };
 
-  const playerContext = `玩家选择了：${choice.label}（${choice.category}）`;
+  const phoneReplyContext = buildPhoneReplyContext(storyState.phoneMessages);
+
+  const playerContext = [
+    `玩家选择了：${choice.label}（${choice.category}）`,
+    phoneReplyContext,
+  ].filter(Boolean).join('\n');
 
   const rawNPCOutput = await runNPCAgent(
     agentInput,

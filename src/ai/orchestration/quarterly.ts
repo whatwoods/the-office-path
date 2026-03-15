@@ -6,6 +6,7 @@ import {
   validateEventNPCConsistency,
   validateEvents,
   validateNPCActions,
+  validateChoices,
 } from "@/ai/orchestration/conflict";
 import {
   createQuarterSummary,
@@ -13,7 +14,9 @@ import {
 } from "@/ai/orchestration/history";
 import { applyStatChanges } from "@/engine/attributes";
 import { settleQuarter } from "@/engine/quarter";
-import type { QuarterPlan } from "@/types/actions";
+import { enterCriticalPeriod } from "@/engine/time";
+import { buildPhoneReplyContext } from "@/ai/orchestration/phone-context";
+import type { QuarterPlan, CriticalChoice } from "@/types/actions";
 import type {
   AgentInput,
   EventAgentOutput,
@@ -35,6 +38,7 @@ export interface QuarterlyPipelineResult {
   }>;
   performanceRating?: string;
   salaryChange?: number;
+  criticalChoices?: CriticalChoice[];
 }
 
 function createPhoneMessage(
@@ -51,6 +55,22 @@ function createPhoneMessage(
     read: false,
     quarter,
   };
+}
+
+export function deduplicateMessages(
+  messages: Array<{ app: PhoneApp; content: string; sender?: string }>,
+): Array<{ app: PhoneApp; content: string; sender?: string }> {
+  const seen = new Set<string>();
+
+  return messages.filter((message) => {
+    const key = `${message.app}:${message.sender ?? ""}:${message.content}`;
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
 }
 
 export async function runQuarterlyPipeline(
@@ -84,11 +104,14 @@ export async function runQuarterlyPipeline(
     }
   }
 
+  const phoneReplyContext = buildPhoneReplyContext(settledState.phoneMessages);
+
   const rawNPCOutput = await runNPCAgent(
     agentInput,
     worldOutput,
     eventOutput,
     plan.actions,
+    phoneReplyContext,
   );
   const npcOutput = validateNPCActions(rawNPCOutput, settledState.npcs);
 
@@ -118,18 +141,14 @@ export async function runQuarterlyPipeline(
     companyStatus: worldOutput.companyStatus,
   };
 
-  const allMessages: Array<{
-    app: PhoneApp;
-    content: string;
-    sender?: string;
-  }> = [
+  const allMessages = deduplicateMessages([
     ...eventOutput.phoneMessages,
     ...npcOutput.chatMessages.map((message) => ({
       app: message.app,
       content: message.content,
       sender: message.sender,
     })),
-  ];
+  ]);
 
   for (const message of allMessages) {
     settledState.phoneMessages.push(
@@ -144,6 +163,7 @@ export async function runQuarterlyPipeline(
     npcOutput,
     plan.actions,
     false,
+    phoneReplyContext,
   );
 
   for (const key of Object.keys(settledState.player) as Array<
@@ -177,6 +197,34 @@ export async function runQuarterlyPipeline(
   );
   settledState.history.push(summary);
 
+  let criticalChoices: CriticalChoice[] | undefined;
+  const criticalEvent = npcValidatedEvents.find(e => e.triggersCritical && e.criticalType);
+  if (criticalEvent && criticalEvent.criticalType) {
+    settledState.timeMode = "critical";
+    settledState.criticalPeriod = enterCriticalPeriod(criticalEvent.criticalType);
+    settledState.staminaRemaining = settledState.criticalPeriod.staminaPerDay;
+
+    const openingChoices = await runNarrativeAgent(
+      { state: settledState, recentHistory: agentInput.recentHistory },
+      worldOutput,
+      { events: [criticalEvent], phoneMessages: [] },
+      { npcActions: [], chatMessages: [] },
+      [],
+      true,
+      `事件触发了关键期：${criticalEvent.title}`,
+      true
+    );
+
+    if (openingChoices.choices) {
+      criticalChoices = validateChoices(
+        openingChoices.choices,
+        settledState.staminaRemaining,
+        settledState.criticalPeriod.type,
+        settledState.player
+      );
+    }
+  }
+
   return {
     state: settledState,
     narrative: narrativeOutput.narrative,
@@ -186,5 +234,6 @@ export async function runQuarterlyPipeline(
     phoneMessages: allMessages,
     performanceRating: engineResult.performanceRating,
     salaryChange: engineResult.salaryChange,
+    criticalChoices,
   };
 }

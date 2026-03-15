@@ -1,26 +1,125 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* 像素风调色板 */
+  --pixel-bg: #1a1a2e;
+  --pixel-bg-light: #16213e;
+  --pixel-bg-panel: #0f3460;
+  --pixel-text: #e0e0e0;
+  --pixel-text-bright: #00ff88;
+  --pixel-text-amber: #ffc107;
+  --pixel-text-dim: #888888;
+  --pixel-border: #4a4a6a;
+  --pixel-border-light: #6a6a8a;
+  --pixel-accent: #e94560;
+  --pixel-green: #00ff88;
+  --pixel-red: #ff4444;
+  --pixel-yellow: #ffc107;
+  --pixel-blue: #4fc3f7;
+  --pixel-gold: #ffd700;
+
+  /* 进度条颜色 */
+  --bar-health: #00ff88;
+  --bar-professional: #4fc3f7;
+  --bar-communication: #ffc107;
+  --bar-management: #e94560;
+  --bar-network: #bb86fc;
+  --bar-mood: #ff9800;
+  --bar-reputation: #ffd700;
+
+  /* 好感度分级 */
+  --favor-low: #ff4444;
+  --favor-mid: #ffc107;
+  --favor-high: #00ff88;
+  --favor-max: #ffd700;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-background: var(--pixel-bg);
+  --color-foreground: var(--pixel-text);
+  --font-pixel: var(--font-zpix);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--pixel-bg);
+  color: var(--pixel-text);
+  font-family: var(--font-zpix), 'Courier New', monospace;
+  image-rendering: pixelated;
+}
+
+/* 像素风通用样式 */
+.pixel-border {
+  border: 4px solid var(--pixel-border);
+  border-radius: 0;
+  box-shadow:
+    4px 4px 0 var(--pixel-border),
+    -1px -1px 0 var(--pixel-border-light);
+}
+
+.pixel-border-light {
+  border: 2px solid var(--pixel-border);
+  border-radius: 0;
+}
+
+/* CRT 文字发光效果 */
+.pixel-glow {
+  text-shadow: 0 0 4px currentColor;
+}
+
+/* 像素风按钮 */
+.pixel-btn {
+  border: 4px solid var(--pixel-border);
+  border-radius: 0;
+  padding: 8px 16px;
+  background: var(--pixel-bg-panel);
+  color: var(--pixel-text);
+  cursor: pointer;
+  transition: none;
+  image-rendering: pixelated;
+}
+
+.pixel-btn:hover {
+  background: var(--pixel-border);
+  color: var(--pixel-text-bright);
+  box-shadow: 4px 4px 0 var(--pixel-bg);
+}
+
+.pixel-btn:active {
+  box-shadow: none;
+  transform: translate(2px, 2px);
+}
+
+.pixel-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 闪烁动画 */
+@keyframes flash-green {
+  0%, 100% { opacity: 1; }
+  50% { background-color: rgba(0, 255, 136, 0.3); }
+}
+
+@keyframes flash-red {
+  0%, 100% { opacity: 1; }
+  50% { background-color: rgba(255, 68, 68, 0.3); }
+}
+
+.flash-increase {
+  animation: flash-green 0.5s ease-in-out 2;
+}
+
+.flash-decrease {
+  animation: flash-red 0.5s ease-in-out 2;
+}
+
+/* 季度过渡淡出 */
+@keyframes fade-out {
+  0% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.quarter-transition {
+  animation: fade-out 1.5s ease-in-out forwards;
 }

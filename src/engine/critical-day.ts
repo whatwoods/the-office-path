@@ -52,7 +52,7 @@ export function settleCriticalDay(
     newState.staminaRemaining = getMaxStamina("quarterly", newState.housing.type);
   } else {
     newState.criticalPeriod = dayResult.period;
-    newState.staminaRemaining = 3;
+    newState.staminaRemaining = newState.criticalPeriod.staminaPerDay;
   }
 
   return {

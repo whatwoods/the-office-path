@@ -117,6 +117,8 @@ export interface PhoneMessage {
   content: string;
   read: boolean;
   quarter: number;
+  replyOptions?: string[];
+  selectedReply?: string;
 }
 
 export type GamePhase = 1 | 2;
