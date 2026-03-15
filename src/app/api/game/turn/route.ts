@@ -1,5 +1,6 @@
-import { settleCriticalDay } from "@/engine/critical-day";
-import { settleQuarter } from "@/engine/quarter";
+import { AgentInputSchema } from "@/ai/schemas";
+import { runCriticalDayPipeline } from "@/ai/orchestration/critical";
+import { runQuarterlyPipeline } from "@/ai/orchestration/quarterly";
 import type { CriticalChoice, QuarterPlan } from "@/types/actions";
 import type { GameState } from "@/types/game";
 
@@ -18,7 +19,20 @@ export async function POST(request: Request) {
       );
     }
 
-    if (body.state.timeMode === "critical") {
+    const stateCheck = AgentInputSchema.shape.state.safeParse(body.state);
+    if (!stateCheck.success) {
+      return Response.json(
+        {
+          success: false,
+          error: `Invalid state: ${stateCheck.error.message}`,
+        },
+        { status: 400 },
+      );
+    }
+
+    const state = body.state;
+
+    if (state.timeMode === "critical") {
       if (!body.choice) {
         return Response.json(
           { success: false, error: "Missing choice for critical period action" },
@@ -26,11 +40,14 @@ export async function POST(request: Request) {
         );
       }
 
-      const result = settleCriticalDay(body.state, body.choice);
+      const result = await runCriticalDayPipeline(state, body.choice);
       return Response.json({
         success: true,
         state: result.state,
+        narrative: result.narrative,
+        nextChoices: result.nextChoices,
         isComplete: result.isComplete,
+        npcActions: result.npcActions,
       });
     }
 
@@ -41,15 +58,20 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = settleQuarter(body.state, body.plan);
+    const result = await runQuarterlyPipeline(state, body.plan);
     return Response.json({
       success: true,
       state: result.state,
+      narrative: result.narrative,
+      worldContext: result.worldContext,
+      events: result.events,
+      npcActions: result.npcActions,
+      phoneMessages: result.phoneMessages,
       performanceRating: result.performanceRating,
       salaryChange: result.salaryChange,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    return Response.json({ success: false, error: message }, { status: 400 });
+    return Response.json({ success: false, error: message }, { status: 500 });
   }
 }
