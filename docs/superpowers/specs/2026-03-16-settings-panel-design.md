@@ -178,7 +178,7 @@ route handler 提取 aiConfig
   ↓
 orchestration 函数签名增加 aiConfig 参数:
   - runQuarterlyPipeline(input, aiConfig?)
-  - runCriticalPipeline(input, aiConfig?)
+  - runCriticalDayPipeline(input, aiConfig?)
   ↓
 各 agent 函数签名增加 aiConfig 参数:
   - runWorldAgent(input, aiConfig?)
@@ -197,7 +197,7 @@ agent 内部调用:
 - `src/ai/agents/npc.ts` — `runNPCAgent`
 - `src/ai/agents/narrative.ts` — `runNarrativeAgent`
 - `src/ai/orchestration/quarterly.ts` — `runQuarterlyPipeline`
-- `src/ai/orchestration/critical.ts` — `runCriticalPipeline`
+- `src/ai/orchestration/critical.ts` — `runCriticalDayPipeline`
 
 ## AI Key 流转
 
