@@ -156,7 +156,11 @@ export async function runEventAgent(
   aiConfig?: AIConfig,
 ): Promise<EventAgentOutput> {
   const { output } = await generateText({
-    model: getModel(resolveAgentModel("event", aiConfig), aiConfig?.apiKey),
+    model: getModel(
+      resolveAgentModel("event", aiConfig),
+      aiConfig?.apiKey,
+      aiConfig?.baseUrl,
+    ),
     output: Output.object({ schema: EventAgentOutputSchema }),
     system: buildSystemPrompt(input),
     prompt: buildUserPrompt(input, worldContext),

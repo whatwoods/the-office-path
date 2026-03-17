@@ -55,6 +55,20 @@ describe('useSettingsStore', () => {
     expect(stored.ai.defaultModel).toBe('custom-model')
   })
 
+  it('replaces modelOverrides when explicitly provided', () => {
+    useSettingsStore.getState().updateAI({
+      modelOverrides: {
+        world: 'openai:gpt-4o',
+      },
+    })
+
+    useSettingsStore.getState().updateAI({
+      modelOverrides: {},
+    })
+
+    expect(useSettingsStore.getState().settings.ai.modelOverrides).toEqual({})
+  })
+
   it('updateDisplay updates display settings and persists', () => {
     useSettingsStore
       .getState()

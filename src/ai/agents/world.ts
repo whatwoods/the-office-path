@@ -67,7 +67,11 @@ export async function runWorldAgent(
   aiConfig?: AIConfig,
 ): Promise<WorldAgentOutput> {
   const { output } = await generateText({
-    model: getModel(resolveAgentModel("world", aiConfig), aiConfig?.apiKey),
+    model: getModel(
+      resolveAgentModel("world", aiConfig),
+      aiConfig?.apiKey,
+      aiConfig?.baseUrl,
+    ),
     output: Output.object({ schema: WorldAgentOutputSchema }),
     system: buildSystemPrompt(input),
     prompt: buildUserPrompt(input),

@@ -93,6 +93,14 @@ describe("getModel with dynamic API key", () => {
     );
   });
 
+  it("falls back to the provider default base URL when dynamicBaseUrl is blank", () => {
+    const model = getModel("deepseek:deepseek-chat", "dk-dynamic-123", "");
+
+    expect(model).toBeDefined();
+    expect(model).toHaveProperty("modelId", "deepseek-chat");
+    expect(model).toHaveProperty("baseURL", "https://api.deepseek.com/v1");
+  });
+
   it("falls back to env-based provider when no dynamic key", () => {
     const model = getModel("openai:gpt-4o");
     expect(model).toBeDefined();
@@ -147,5 +155,17 @@ describe("resolveAgentModel", () => {
     };
     const spec = resolveAgentModel("event", config);
     expect(spec).toBe("deepseek:deepseek-chat");
+  });
+
+  it("requires a default model or override for custom providers", () => {
+    const config: AIConfig = {
+      provider: "custom",
+      apiKey: "sk-test",
+      baseUrl: "https://example.com/v1",
+    };
+
+    expect(() => resolveAgentModel("world", config)).toThrow(
+      "Custom provider requires a default model or agent override",
+    );
   });
 });

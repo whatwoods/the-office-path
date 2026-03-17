@@ -3,6 +3,8 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import LandingPage from '@/app/page'
 import { useGameStore } from '@/store/gameStore'
+import { useSettingsStore } from '@/store/settingsStore'
+import { DEFAULT_SETTINGS } from '@/types/settings'
 
 const push = vi.fn()
 
@@ -13,6 +15,7 @@ vi.mock('next/navigation', () => ({
 describe('LandingPage', () => {
   beforeEach(() => {
     push.mockReset()
+    useSettingsStore.setState({ settings: structuredClone(DEFAULT_SETTINGS) })
     useGameStore.setState({
       state: null,
       isLoading: false,
@@ -64,7 +67,19 @@ describe('LandingPage', () => {
     expect(screen.getByText('存档管理')).toBeDefined()
   })
 
-  it('routes to the intro page when clicking new game', async () => {
+  it('opens settings instead of routing when API key is missing', async () => {
+    const user = userEvent.setup()
+
+    render(<LandingPage />)
+
+    await user.click(screen.getByText('新游戏'))
+
+    expect(push).not.toHaveBeenCalled()
+    expect(screen.getAllByText('设置').length).toBeGreaterThan(1)
+  })
+
+  it('routes to the intro page when API key is present', async () => {
+    useSettingsStore.getState().updateAI({ apiKey: 'sk-test-key' })
     const user = userEvent.setup()
 
     render(<LandingPage />)

@@ -135,6 +135,40 @@ describe("useGameStore", () => {
     expect(body.aiConfig).toEqual({
       provider: "anthropic",
       apiKey: "sk-test-key",
+      baseUrl: "",
+      defaultModel: "",
+      modelOverrides: {},
+    });
+  });
+
+  it("newGame includes baseUrl and defaultModel in aiConfig when configured", async () => {
+    useSettingsStore.getState().updateAI({
+      provider: "custom",
+      apiKey: "custom-key",
+      baseUrl: "https://example.com/v1",
+      defaultModel: "custom:qwen-plus",
+    });
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          success: true,
+          state: createNewGame(),
+          narrative: "入职了。",
+          criticalChoices: [],
+        }),
+    });
+
+    await useGameStore.getState().newGame();
+
+    const callArgs = mockFetch.mock.calls[0];
+    const body = JSON.parse(callArgs[1].body);
+    expect(body.aiConfig).toEqual({
+      provider: "custom",
+      apiKey: "custom-key",
+      baseUrl: "https://example.com/v1",
+      defaultModel: "custom:qwen-plus",
       modelOverrides: {},
     });
   });
@@ -272,6 +306,8 @@ describe("useGameStore", () => {
     expect(body.aiConfig).toEqual({
       provider: "deepseek",
       apiKey: "dk-quarter-key",
+      baseUrl: "",
+      defaultModel: "",
       modelOverrides: {},
     });
   });
@@ -413,6 +449,8 @@ describe("useGameStore", () => {
     expect(body.aiConfig).toEqual({
       provider: "anthropic",
       apiKey: "sk-choice-key",
+      baseUrl: "",
+      defaultModel: "",
       modelOverrides: {},
     });
   });
@@ -619,6 +657,8 @@ describe("useGameStore", () => {
     expect(body.aiConfig).toEqual({
       provider: "openai",
       apiKey: "sk-resign-key",
+      baseUrl: "",
+      defaultModel: "",
       modelOverrides: {},
     });
   });

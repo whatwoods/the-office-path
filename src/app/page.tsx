@@ -19,6 +19,13 @@ export default function LandingPage() {
   }, [])
 
   const handleNewGame = () => {
+    const { apiKey } = useSettingsStore.getState().settings.ai
+
+    if (!apiKey.trim()) {
+      setShowSettings(true)
+      return
+    }
+
     router.push('/intro')
   }
 

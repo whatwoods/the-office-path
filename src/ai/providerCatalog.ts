@@ -5,6 +5,7 @@ export type AgentName = "world" | "event" | "npc" | "narrative";
 type ProviderKind = "openai-compatible" | "anthropic" | "gemini";
 
 export interface ProviderCatalogEntry {
+  label: string;
   kind: ProviderKind;
   envApiKey: string;
   defaultBaseUrl?: string;
@@ -13,8 +14,10 @@ export interface ProviderCatalogEntry {
 
 export const PROVIDER_CATALOG: Record<AIProvider, ProviderCatalogEntry> = {
   openai: {
+    label: "OpenAI",
     kind: "openai-compatible",
     envApiKey: "OPENAI_API_KEY",
+    defaultBaseUrl: "https://api.openai.com/v1",
     defaultModels: {
       world: "gpt-4o-mini",
       event: "gpt-4o-mini",
@@ -23,6 +26,7 @@ export const PROVIDER_CATALOG: Record<AIProvider, ProviderCatalogEntry> = {
     },
   },
   anthropic: {
+    label: "Anthropic",
     kind: "anthropic",
     envApiKey: "ANTHROPIC_API_KEY",
     defaultModels: {
@@ -33,6 +37,7 @@ export const PROVIDER_CATALOG: Record<AIProvider, ProviderCatalogEntry> = {
     },
   },
   deepseek: {
+    label: "DeepSeek",
     kind: "openai-compatible",
     envApiKey: "DEEPSEEK_API_KEY",
     defaultBaseUrl: "https://api.deepseek.com/v1",
@@ -44,6 +49,7 @@ export const PROVIDER_CATALOG: Record<AIProvider, ProviderCatalogEntry> = {
     },
   },
   siliconflow: {
+    label: "硅基流动",
     kind: "openai-compatible",
     envApiKey: "SILICONFLOW_API_KEY",
     defaultBaseUrl: "https://api.siliconflow.cn/v1",
@@ -55,6 +61,7 @@ export const PROVIDER_CATALOG: Record<AIProvider, ProviderCatalogEntry> = {
     },
   },
   modelscope: {
+    label: "魔搭",
     kind: "openai-compatible",
     envApiKey: "MODELSCOPE_API_KEY",
     defaultBaseUrl: "https://api-inference.modelscope.cn/v1",
@@ -66,6 +73,7 @@ export const PROVIDER_CATALOG: Record<AIProvider, ProviderCatalogEntry> = {
     },
   },
   bailian: {
+    label: "阿里云百炼",
     kind: "openai-compatible",
     envApiKey: "BAILIAN_API_KEY",
     defaultBaseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -77,6 +85,7 @@ export const PROVIDER_CATALOG: Record<AIProvider, ProviderCatalogEntry> = {
     },
   },
   longcat: {
+    label: "龙猫",
     kind: "openai-compatible",
     envApiKey: "LONGCAT_API_KEY",
     defaultBaseUrl: "https://api.longcat.chat/v1",
@@ -88,6 +97,7 @@ export const PROVIDER_CATALOG: Record<AIProvider, ProviderCatalogEntry> = {
     },
   },
   gemini: {
+    label: "Gemini",
     kind: "gemini",
     envApiKey: "GOOGLE_GENERATIVE_AI_API_KEY",
     defaultModels: {
@@ -98,6 +108,7 @@ export const PROVIDER_CATALOG: Record<AIProvider, ProviderCatalogEntry> = {
     },
   },
   custom: {
+    label: "自定义",
     kind: "openai-compatible",
     envApiKey: "CUSTOM_AI_API_KEY",
   },

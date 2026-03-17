@@ -139,7 +139,11 @@ export async function runNPCAgent(
   aiConfig?: AIConfig,
 ): Promise<NPCAgentOutput> {
   const { output } = await generateText({
-    model: getModel(resolveAgentModel("npc", aiConfig), aiConfig?.apiKey),
+    model: getModel(
+      resolveAgentModel("npc", aiConfig),
+      aiConfig?.apiKey,
+      aiConfig?.baseUrl,
+    ),
     output: Output.object({ schema: NPCAgentOutputSchema }),
     system: buildSystemPrompt(input),
     prompt: buildUserPrompt(

@@ -90,13 +90,14 @@ export function getModel(
   const provider = providerName as AIProvider;
   const metadata = PROVIDER_CATALOG[provider];
   const hasDynamicApiKey = dynamicApiKey !== undefined;
-  const hasDynamicBaseUrl = dynamicBaseUrl !== undefined;
+  const normalizedDynamicBaseUrl = dynamicBaseUrl?.trim() || undefined;
+  const hasDynamicBaseUrl = normalizedDynamicBaseUrl !== undefined;
 
   if (hasDynamicApiKey || hasDynamicBaseUrl) {
     const dynamicProvider = createProvider(
       provider,
       dynamicApiKey ?? getProviderApiKey(provider),
-      dynamicBaseUrl ?? metadata.defaultBaseUrl,
+      normalizedDynamicBaseUrl ?? metadata.defaultBaseUrl,
     );
     return dynamicProvider(modelId);
   }
@@ -131,6 +132,10 @@ export function resolveAgentModel(
   const providerDefault = PROVIDER_CATALOG[aiConfig.provider].defaultModels?.[agent];
   if (providerDefault) {
     return `${aiConfig.provider}:${providerDefault}` as ModelSpec;
+  }
+
+  if (aiConfig.provider === "custom") {
+    throw new Error("Custom provider requires a default model or agent override");
   }
 
   return AGENT_MODELS[agent];

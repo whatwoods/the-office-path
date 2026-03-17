@@ -49,6 +49,64 @@ describe('SettingsModal', () => {
     expect(useSettingsStore.getState().settings.ai.provider).toBe('anthropic')
   })
 
+  it('changing provider clears provider-specific model settings', async () => {
+    const user = userEvent.setup()
+    useSettingsStore.getState().updateAI({
+      provider: 'custom',
+      apiKey: 'custom-key',
+      baseUrl: 'https://example.com/v1',
+      defaultModel: 'custom:qwen-plus',
+      modelOverrides: { world: 'custom:qwen-max' },
+    })
+
+    render(<SettingsModal open={true} onClose={vi.fn()} />)
+
+    await user.selectOptions(screen.getByLabelText('AI 服务商'), 'openai')
+
+    expect(useSettingsStore.getState().settings.ai.provider).toBe('openai')
+    expect(useSettingsStore.getState().settings.ai.baseUrl).toBe('')
+    expect(useSettingsStore.getState().settings.ai.defaultModel).toBe('')
+    expect(useSettingsStore.getState().settings.ai.modelOverrides).toEqual({})
+  })
+
+  it('shows all supported AI providers', () => {
+    render(<SettingsModal open={true} onClose={vi.fn()} />)
+
+    const provider = screen.getByLabelText('AI 服务商')
+    expect(screen.getByRole('option', { name: 'OpenAI' })).toBeDefined()
+    expect(screen.getByRole('option', { name: 'Anthropic' })).toBeDefined()
+    expect(screen.getByRole('option', { name: 'DeepSeek' })).toBeDefined()
+    expect(screen.getByRole('option', { name: '硅基流动' })).toBeDefined()
+    expect(screen.getByRole('option', { name: '魔搭' })).toBeDefined()
+    expect(screen.getByRole('option', { name: '阿里云百炼' })).toBeDefined()
+    expect(screen.getByRole('option', { name: '龙猫' })).toBeDefined()
+    expect(screen.getByRole('option', { name: 'Gemini' })).toBeDefined()
+    expect(screen.getByRole('option', { name: '自定义' })).toBeDefined()
+    expect(provider).toBeDefined()
+  })
+
+  it('shows Base URL when the custom provider is selected', async () => {
+    const user = userEvent.setup()
+    render(<SettingsModal open={true} onClose={vi.fn()} />)
+
+    await user.selectOptions(screen.getByLabelText('AI 服务商'), 'custom')
+
+    expect(screen.getByLabelText('Base URL')).toBeDefined()
+  })
+
+  it('shows default model and advanced override controls', async () => {
+    const user = userEvent.setup()
+    render(<SettingsModal open={true} onClose={vi.fn()} />)
+
+    expect(screen.getByLabelText('默认模型')).toBeDefined()
+    expect(screen.queryByLabelText('world 模型覆盖')).toBeNull()
+
+    await user.click(screen.getByText('高级设置'))
+
+    expect(screen.getByLabelText('world 模型覆盖')).toBeDefined()
+    expect(screen.getByLabelText('narrative 模型覆盖')).toBeDefined()
+  })
+
   it('display tab shows narrative speed slider and font size', async () => {
     const user = userEvent.setup()
     render(<SettingsModal open={true} onClose={vi.fn()} />)
