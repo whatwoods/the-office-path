@@ -185,6 +185,7 @@ export async function runNarrativeAgent(
     model: getModel(
       resolveAgentModel("narrative", aiConfig),
       aiConfig?.apiKey,
+      aiConfig?.baseUrl,
     ),
     output: Output.object({ schema: NarrativeAgentOutputSchema }),
     system: buildSystemPrompt(input, isCriticalPeriod, generateChoices),

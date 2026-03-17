@@ -1,13 +1,28 @@
+export type AIProvider =
+  | 'openai'
+  | 'anthropic'
+  | 'deepseek'
+  | 'siliconflow'
+  | 'modelscope'
+  | 'bailian'
+  | 'longcat'
+  | 'gemini'
+  | 'custom'
+
 export interface AIConfig {
-  provider: 'openai' | 'anthropic' | 'deepseek'
+  provider: AIProvider
   apiKey: string
+  baseUrl?: string
+  defaultModel?: string
   modelOverrides?: Record<string, string>
 }
 
 export interface Settings {
   ai: {
-    provider: 'openai' | 'anthropic' | 'deepseek'
+    provider: AIProvider
     apiKey: string
+    baseUrl: string
+    defaultModel: string
     modelOverrides: {
       world?: string
       event?: string
@@ -28,6 +43,8 @@ export const DEFAULT_SETTINGS: Settings = {
   ai: {
     provider: 'openai',
     apiKey: '',
+    baseUrl: '',
+    defaultModel: '',
     modelOverrides: {},
   },
   display: {

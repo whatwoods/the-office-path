@@ -56,15 +56,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   },
 
   updateAI: patch => {
+    const currentAI = get().settings.ai
     const settings = {
       ...get().settings,
       ai: {
-        ...get().settings.ai,
+        ...currentAI,
         ...patch,
-        modelOverrides: {
-          ...get().settings.ai.modelOverrides,
-          ...patch.modelOverrides,
-        },
+        modelOverrides:
+          patch.modelOverrides === undefined
+            ? currentAI.modelOverrides
+            : patch.modelOverrides,
       },
     }
     set({ settings })
@@ -104,6 +105,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     return {
       provider: ai.provider,
       apiKey: ai.apiKey,
+      baseUrl: ai.baseUrl,
+      defaultModel: ai.defaultModel,
       modelOverrides: ai.modelOverrides,
     }
   },

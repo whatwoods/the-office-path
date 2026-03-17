@@ -1,8 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { PROVIDER_CATALOG } from '@/ai/providerCatalog'
+import { ModelSearchInput } from '@/components/game/ModelSearchInput'
 import { Modal } from '@/components/ui/Modal'
 import { useSettingsStore } from '@/store/settingsStore'
+import type { AIProvider } from '@/types/settings'
 
 interface SettingsModalProps {
   open: boolean
@@ -21,6 +24,8 @@ function AITab() {
   const ai = useSettingsStore(s => s.settings.ai)
   const updateAI = useSettingsStore(s => s.updateAI)
   const [showKey, setShowKey] = useState(false)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const providerBaseUrl = ai.provider === 'custom' ? (ai.baseUrl ?? '') : ''
 
   return (
     <div className="space-y-4">
@@ -37,14 +42,22 @@ function AITab() {
           className="pixel-border-light w-full bg-[var(--pixel-bg-light)] px-3 py-2 text-sm text-[var(--pixel-text)]"
           value={ai.provider}
           onChange={event => {
+            const nextProvider = event.target.value as AIProvider
             updateAI({
-              provider: event.target.value as 'openai' | 'anthropic' | 'deepseek',
+              provider: nextProvider,
+              baseUrl: nextProvider === 'custom' ? (ai.baseUrl ?? '') : '',
+              defaultModel: '',
+              modelOverrides: {},
             })
           }}
         >
-          <option value="openai">OpenAI</option>
-          <option value="anthropic">Anthropic</option>
-          <option value="deepseek">DeepSeek</option>
+          {(Object.entries(PROVIDER_CATALOG) as [AIProvider, (typeof PROVIDER_CATALOG)[AIProvider]][]).map(
+            ([provider, metadata]) => (
+              <option key={provider} value={provider}>
+                {metadata.label}
+              </option>
+            ),
+          )}
         </select>
       </div>
 
@@ -75,33 +88,63 @@ function AITab() {
         </div>
       </div>
 
+      {ai.provider === 'custom' && (
+        <div>
+          <label
+            htmlFor="settings-base-url"
+            className="mb-1 block text-xs text-[var(--pixel-text-dim)]"
+          >
+            Base URL
+          </label>
+          <input
+            id="settings-base-url"
+            aria-label="Base URL"
+            type="url"
+            className="pixel-border-light w-full bg-[var(--pixel-bg-light)] px-3 py-2 text-sm text-[var(--pixel-text)]"
+            value={ai.baseUrl ?? ''}
+            onChange={event => updateAI({ baseUrl: event.target.value })}
+            placeholder="https://example.com/v1"
+          />
+        </div>
+      )}
+
+      <ModelSearchInput
+        label="默认模型"
+        provider={ai.provider}
+        apiKey={ai.apiKey}
+        baseUrl={providerBaseUrl}
+        value={ai.defaultModel ?? ''}
+        onChange={value => updateAI({ defaultModel: value })}
+      />
+
       <div className="space-y-2">
-        <p className="text-xs text-[var(--pixel-text-dim)]">模型覆盖（留空使用默认）</p>
-        {(['world', 'event', 'npc', 'narrative'] as const).map(agent => (
-          <div key={agent}>
-            <label
-              htmlFor={`settings-model-${agent}`}
-              className="mb-1 block text-[10px] uppercase tracking-wide text-[var(--pixel-text-dim)]"
-            >
-              {agent}
-            </label>
-            <input
-              id={`settings-model-${agent}`}
-              type="text"
-              className="pixel-border-light w-full bg-[var(--pixel-bg-light)] px-3 py-2 text-xs text-[var(--pixel-text)]"
+        <button
+          type="button"
+          className="pixel-btn px-3 py-1 text-xs"
+          onClick={() => setAdvancedOpen(prev => !prev)}
+        >
+          高级设置
+        </button>
+
+        {advancedOpen &&
+          (['world', 'event', 'npc', 'narrative'] as const).map(agent => (
+            <ModelSearchInput
+              key={agent}
+              label={`${agent} 模型覆盖`}
+              provider={ai.provider}
+              apiKey={ai.apiKey}
+              baseUrl={providerBaseUrl}
               value={ai.modelOverrides[agent] ?? ''}
-              onChange={event =>
+              onChange={value =>
                 updateAI({
                   modelOverrides: {
                     ...ai.modelOverrides,
-                    [agent]: event.target.value || undefined,
+                    [agent]: value || undefined,
                   },
                 })
               }
-              placeholder={`${ai.provider}:model-id`}
             />
-          </div>
-        ))}
+          ))}
       </div>
     </div>
   )

@@ -41,8 +41,10 @@ function makeInput(): AgentInput {
 }
 
 const aiConfig: AIConfig = {
-  provider: 'anthropic',
-  apiKey: 'sk-agent-test',
+  provider: 'custom',
+  apiKey: 'custom-key',
+  baseUrl: 'https://example.com/v1',
+  defaultModel: 'custom:qwen-plus',
   modelOverrides: {},
 }
 
@@ -70,9 +72,7 @@ describe('agent aiConfig support', () => {
     vi.clearAllMocks()
     mockedGenerateText.mockResolvedValue({ output: {} } as never)
     mockedGetModel.mockReturnValue({ modelId: 'resolved-model' } as never)
-    mockedResolveAgentModel.mockReturnValue(
-      'anthropic:claude-sonnet-4-20250514',
-    )
+    mockedResolveAgentModel.mockReturnValue('custom:qwen-plus')
   })
 
   it('runWorldAgent resolves and loads the model from aiConfig', async () => {
@@ -89,8 +89,9 @@ describe('agent aiConfig support', () => {
 
     expect(mockedResolveAgentModel).toHaveBeenCalledWith('world', aiConfig)
     expect(mockedGetModel).toHaveBeenCalledWith(
-      'anthropic:claude-sonnet-4-20250514',
-      'sk-agent-test',
+      'custom:qwen-plus',
+      'custom-key',
+      'https://example.com/v1',
     )
   })
 
@@ -103,8 +104,9 @@ describe('agent aiConfig support', () => {
 
     expect(mockedResolveAgentModel).toHaveBeenCalledWith('event', aiConfig)
     expect(mockedGetModel).toHaveBeenCalledWith(
-      'anthropic:claude-sonnet-4-20250514',
-      'sk-agent-test',
+      'custom:qwen-plus',
+      'custom-key',
+      'https://example.com/v1',
     )
   })
 
@@ -124,8 +126,9 @@ describe('agent aiConfig support', () => {
 
     expect(mockedResolveAgentModel).toHaveBeenCalledWith('npc', aiConfig)
     expect(mockedGetModel).toHaveBeenCalledWith(
-      'anthropic:claude-sonnet-4-20250514',
-      'sk-agent-test',
+      'custom:qwen-plus',
+      'custom-key',
+      'https://example.com/v1',
     )
   })
 
@@ -148,8 +151,9 @@ describe('agent aiConfig support', () => {
 
     expect(mockedResolveAgentModel).toHaveBeenCalledWith('narrative', aiConfig)
     expect(mockedGetModel).toHaveBeenCalledWith(
-      'anthropic:claude-sonnet-4-20250514',
-      'sk-agent-test',
+      'custom:qwen-plus',
+      'custom-key',
+      'https://example.com/v1',
     )
   })
 })
