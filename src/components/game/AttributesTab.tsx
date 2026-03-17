@@ -17,34 +17,44 @@ const ATTRIBUTE_CONFIG = [
   { key: 'reputation' as const, label: '声望', color: 'var(--bar-reputation)' },
 ] as const
 
-type AttrKey = typeof ATTRIBUTE_CONFIG[number]['key']
-
 export function AttributesTab() {
   const state = useGameStore(s => s.state)
   const promotionInfo = useGameStore(s => s.promotionInfo)
+  const player = state?.player
   const prevAttrs = useRef<PlayerAttributes | null>(null)
   const [flashMap, setFlashMap] = useState<Record<string, 'increase' | 'decrease'>>({})
 
   // Detect attribute changes and trigger flash
   useEffect(() => {
-    if (!state || !prevAttrs.current) {
-      if (state) prevAttrs.current = { ...state.player }
+    if (!player) {
+      prevAttrs.current = null
       return
     }
+
+    if (!prevAttrs.current) {
+      prevAttrs.current = { ...player }
+      return
+    }
+
     const flashes: Record<string, 'increase' | 'decrease'> = {}
     for (const attr of ATTRIBUTE_CONFIG) {
       const prev = prevAttrs.current[attr.key]
-      const curr = state.player[attr.key]
+      const curr = player[attr.key]
       if (curr > prev) flashes[attr.key] = 'increase'
       else if (curr < prev) flashes[attr.key] = 'decrease'
     }
-    prevAttrs.current = { ...state.player }
+
+    prevAttrs.current = { ...player }
     if (Object.keys(flashes).length > 0) {
-      setFlashMap(flashes)
-      const timer = setTimeout(() => setFlashMap({}), 1000)
-      return () => clearTimeout(timer)
+      const frame = requestAnimationFrame(() => setFlashMap(flashes))
+      const timer = window.setTimeout(() => setFlashMap({}), 1000)
+
+      return () => {
+        cancelAnimationFrame(frame)
+        window.clearTimeout(timer)
+      }
     }
-  }, [state?.player])
+  }, [player])
 
   if (!state) return null
 

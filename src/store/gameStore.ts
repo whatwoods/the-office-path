@@ -7,6 +7,7 @@ import {
   canPostMaimai,
   createPlayerPost,
 } from "@/engine/maimai";
+import { checkPromotion } from "@/engine/promotion";
 import {
   loadGame as storageLoad,
   saveGame as storageSave,
@@ -30,7 +31,7 @@ interface PerformanceInfo {
   salaryChange: number;
 }
 
-function buildAIConfig(): { aiConfig: AIConfig } | {} {
+function buildAIConfig(): { aiConfig?: AIConfig } {
   const config = useSettingsStore.getState().getAIConfig();
   return config ? { aiConfig: config } : {};
 }
@@ -39,6 +40,19 @@ function autoSaveIfEnabled(state: GameState): void {
   if (useSettingsStore.getState().settings.gameplay.autoSave) {
     storageSave(state, "auto");
   }
+}
+
+function buildPromotionInfo(state: GameState | null): PromotionInfo | null {
+  if (!state) {
+    return null;
+  }
+
+  const promotion = checkPromotion(state);
+  return {
+    eligible: promotion.eligible,
+    nextLevels: promotion.nextLevels,
+    failReasons: promotion.failReasons,
+  };
 }
 
 interface GameStore {
@@ -67,7 +81,7 @@ interface GameStore {
   ignoreOffer: (offerId: string) => void;
   refreshState: () => Promise<void>;
   saveGame: (slot: string) => void;
-  loadGame: (slot: string) => void;
+  loadGame: (slot: string) => boolean;
   setActivePanel: (panel: "attributes" | "relationships" | "phone") => void;
   setActivePhoneApp: (app: PhoneApp | null) => void;
   setShowSaveModal: (show: boolean) => void;
@@ -94,6 +108,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   lastPerformance: null,
 
   newGame: async () => {
+    if (get().isLoading) return;
     set({ isLoading: true, error: null });
     try {
       const res = await fetch("/api/game/new", {
@@ -111,6 +126,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         isLoading: false,
         narrativeQueue: data.narrative ? [data.narrative] : [],
         criticalChoices: data.criticalChoices ?? [],
+        promotionInfo: buildPromotionInfo(data.state),
         currentEvent: null,
         showQuarterTransition: true,
         lastPerformance: null,
@@ -121,7 +137,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   submitQuarter: async (plan: QuarterPlan | ExecutiveQuarterPlan) => {
-    const { state } = get();
+    const { state, isLoading } = get();
+    if (isLoading) return;
     if (!state) return;
     set({ isLoading: true, error: null });
     try {
@@ -144,6 +161,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         showQuarterTransition: true,
         currentEvent,
         criticalChoices: data.criticalChoices ?? [],
+        promotionInfo: buildPromotionInfo(data.state),
         lastPerformance: data.performanceRating
           ? {
               rating: data.performanceRating,
@@ -152,14 +170,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
           : null,
       });
       autoSaveIfEnabled(data.state);
-      void get().refreshState();
     } catch {
       set({ error: "网络错误", isLoading: false });
     }
   },
 
   submitChoice: async (choice: CriticalChoice) => {
-    const { state } = get();
+    const { state, isLoading } = get();
+    if (isLoading) return;
     if (!state) return;
     set({ isLoading: true, error: null });
     try {
@@ -178,6 +196,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         isLoading: false,
         narrativeQueue: data.narrative ? [data.narrative] : [],
         criticalChoices: data.nextChoices ?? [],
+        promotionInfo: buildPromotionInfo(data.state),
         currentEvent: null,
         showQuarterTransition: data.isComplete === true,
       });
@@ -187,7 +206,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   resignStartup: async (path: Phase2Path = "startup") => {
-    const { state } = get();
+    const { state, isLoading } = get();
+    if (isLoading) return;
     if (!state) return;
     set({ isLoading: true, error: null });
     try {
@@ -206,6 +226,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         isLoading: false,
         narrativeQueue: data.narrative ? [data.narrative] : [],
         criticalChoices: data.criticalChoices ?? [],
+        promotionInfo: buildPromotionInfo(data.state),
         currentEvent: null,
         showQuarterTransition: true,
         lastPerformance: null,
@@ -275,7 +296,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   acceptOffer: async (offerId: string) => {
-    const { state } = get();
+    const { state, isLoading } = get();
+    if (isLoading) return;
     if (!state) return;
 
     const offer = state.jobOffers.find((candidate) => candidate.id === offerId);
@@ -292,6 +314,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         isLoading: false,
         narrativeQueue: [`你接受了 ${offer.companyName} 的 offer，开始新的入职适应期。`],
         criticalChoices: [],
+        promotionInfo: buildPromotionInfo(nextState),
         currentEvent: null,
         showQuarterTransition: true,
         lastPerformance: null,
@@ -317,25 +340,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   refreshState: async () => {
     const { state } = get();
     if (!state) return;
-    try {
-      const res = await fetch("/api/game/state", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ state }),
-      });
-      const data = await res.json();
-      if (res.ok && data.computed) {
-        set({
-          promotionInfo: {
-            eligible: data.computed.promotionEligible,
-            nextLevels: data.computed.promotionNextLevels,
-            failReasons: data.computed.promotionFailReasons,
-          },
-        });
-      }
-    } catch {
-      // Silent fail for promotion check
-    }
+    set({ promotionInfo: buildPromotionInfo(state) });
   },
 
   saveGame: (slot: string) => {
@@ -348,21 +353,38 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const loaded = storageLoad(slot as SaveSlot);
     if (!loaded) {
       set({ error: "存档不存在" });
-      return;
+      return false;
     }
     set({
       state: loaded,
       error: null,
       narrativeQueue: [],
+      promotionInfo: buildPromotionInfo(loaded),
       currentEvent: null,
       criticalChoices: [],
       showQuarterTransition: false,
       lastPerformance: null,
     });
+    return true;
   },
 
   setActivePanel: (panel) => set({ activePanel: panel }),
-  setActivePhoneApp: (app) => set({ activePhoneApp: app }),
+  setActivePhoneApp: (app) =>
+    set((store) => {
+      if (!app || !store.state) {
+        return { activePhoneApp: app };
+      }
+
+      return {
+        activePhoneApp: app,
+        state: {
+          ...store.state,
+          phoneMessages: store.state.phoneMessages.map((message) =>
+            message.app === app ? { ...message, read: true } : message,
+          ),
+        },
+      };
+    }),
   setShowSaveModal: (show) => set({ showSaveModal: show }),
   dismissCurrentEvent: () => set({ currentEvent: null }),
   dismissQuarterTransition: () => set({ showQuarterTransition: false }),

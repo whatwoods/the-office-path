@@ -36,8 +36,9 @@ export function checkExecutiveFailure(
 
 export function checkExecutivePromotion(
   executive: ExecutiveState,
-  _quartersAtLevel: number,
+  quartersAtLevel: number,
 ): ExecutivePromotionResult {
+  void quartersAtLevel;
   const failReasons: string[] = [];
 
   switch (executive.stage) {

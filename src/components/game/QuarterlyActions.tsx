@@ -173,7 +173,7 @@ export function QuarterlyActions({
               : npcs.filter(n => n.isActive).map(npc => (
                   <button
                     key={npc.id}
-                    onClick={() => handleTargetSelect(npc.name)}
+                    onClick={() => handleTargetSelect(npc.id)}
                     className="pixel-btn px-2 py-1 text-xs"
                   >
                     {npc.name}

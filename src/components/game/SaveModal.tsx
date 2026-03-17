@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Modal } from '@/components/ui/Modal'
 import { PixelButton } from '@/components/ui/PixelButton'
@@ -24,14 +24,16 @@ export function SaveModal({ open, onClose, mode }: SaveModalProps) {
   const router = useRouter()
   const saveGame = useGameStore(s => s.saveGame)
   const loadGame = useGameStore(s => s.loadGame)
-  const state = useGameStore(s => s.state)
-  const [saves, setSaves] = useState<SaveMeta[]>([])
+  const [saveListVersion, setSaveListVersion] = useState(0)
 
-  useEffect(() => {
-    if (open) {
-      setSaves(listSaves())
+  const saves = useMemo<SaveMeta[]>(() => {
+    void saveListVersion
+    if (!open) {
+      return []
     }
-  }, [open])
+
+    return listSaves()
+  }, [open, saveListVersion])
 
   const getSaveMeta = (slot: string) => saves.find(s => s.slot === slot)
 
@@ -39,11 +41,12 @@ export function SaveModal({ open, onClose, mode }: SaveModalProps) {
     const existing = getSaveMeta(slot)
     if (existing && !confirm('覆盖已有存档？')) return
     saveGame(slot)
-    setSaves(listSaves())
+    setSaveListVersion(version => version + 1)
   }
 
   const handleLoad = (slot: string) => {
-    loadGame(slot)
+    const loaded = loadGame(slot)
+    if (!loaded) return
     onClose()
     router.push('/game')
   }
@@ -51,7 +54,7 @@ export function SaveModal({ open, onClose, mode }: SaveModalProps) {
   const handleDelete = (slot: string) => {
     if (!confirm('确定删除此存档？')) return
     deleteSave(slot as SaveSlot)
-    setSaves(listSaves())
+    setSaveListVersion(version => version + 1)
   }
 
   return (

@@ -101,6 +101,7 @@ export function ActionBar() {
           {isCritical && state.criticalPeriod ? (
             <CriticalChoices
               choices={criticalChoices}
+              isLoading={isLoading}
               staminaRemaining={state.staminaRemaining}
               staminaPerDay={state.criticalPeriod.staminaPerDay}
               currentDay={state.criticalPeriod.currentDay}
@@ -140,7 +141,6 @@ export function ActionBar() {
             isLoading={isLoading}
             isCritical={isCritical}
             staminaRemaining={staminaRemaining}
-            staminaMax={staminaMax}
             onSubmit={handleSubmitQuarter}
           />
         </div>

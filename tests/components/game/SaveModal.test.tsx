@@ -4,8 +4,10 @@ import userEvent from '@testing-library/user-event'
 import { useGameStore } from '@/store/gameStore'
 import { SaveModal } from '@/components/game/SaveModal'
 
+const push = vi.fn()
+
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push }),
 }))
 import { createNewGame } from '@/engine/state'
 
@@ -19,6 +21,7 @@ vi.stubGlobal('localStorage', {
 
 describe('SaveModal', () => {
   beforeEach(() => {
+    push.mockReset()
     useGameStore.setState({ state: createNewGame() })
     Object.keys(storage).forEach(k => delete storage[k])
   })
@@ -56,5 +59,24 @@ describe('SaveModal', () => {
     await user.click(saveButtons[0])
 
     expect(storage['office_path_save_slot1']).toBeDefined()
+  })
+
+  it('does not navigate when loading a save fails', async () => {
+    const user = userEvent.setup()
+    storage['office_path_save_slot1'] = JSON.stringify({
+      state: {
+        ...createNewGame(),
+        version: '9.9',
+      },
+      savedAt: new Date().toISOString(),
+    })
+
+    render(<SaveModal open={true} onClose={vi.fn()} mode="load" />)
+
+    await user.click(screen.getByText('读取'))
+
+    expect(useGameStore.getState().state).not.toBeNull()
+    expect(useGameStore.getState().error).toBe('存档不存在')
+    expect(push).not.toHaveBeenCalled()
   })
 })

@@ -90,6 +90,43 @@ describe('QuarterlyActions', () => {
     expect(onAllocate).toHaveBeenCalledWith({ action: 'work_hard' })
   })
 
+  it('uses NPC id when selecting a socialize target', async () => {
+    const user = userEvent.setup()
+    render(
+      <QuarterlyActions
+        phase={1}
+        phase2Path={null}
+        level="L3"
+        allocations={allocations}
+        staminaUsed={0}
+        staminaMax={10}
+        npcs={[
+          {
+            id: 'zhang_wei',
+            name: '张伟',
+            role: '同组同事',
+            personality: '热心但爱八卦',
+            hiddenGoal: '想晋升',
+            favor: 50,
+            isActive: true,
+            currentStatus: '在岗',
+            companyName: '星辰互联',
+          },
+        ]}
+        onAllocate={onAllocate}
+        onDeallocate={onDeallocate}
+      />,
+    )
+
+    await user.click(screen.getByText('社交应酬'))
+    await user.click(screen.getByText('张伟'))
+
+    expect(onAllocate).toHaveBeenCalledWith({
+      action: 'socialize',
+      target: 'zhang_wei',
+    })
+  })
+
   it('disables cards when stamina is full', () => {
     render(
       <QuarterlyActions

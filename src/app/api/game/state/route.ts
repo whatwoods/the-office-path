@@ -1,3 +1,4 @@
+import { AgentInputSchema } from "@/ai/schemas";
 import { checkPromotion } from "@/engine/promotion";
 import type { GameState } from "@/types/game";
 
@@ -8,6 +9,14 @@ export async function POST(request: Request) {
     if (!body.state) {
       return Response.json(
         { success: false, error: "Missing state" },
+        { status: 400 },
+      );
+    }
+
+    const stateCheck = AgentInputSchema.shape.state.safeParse(body.state);
+    if (!stateCheck.success) {
+      return Response.json(
+        { success: false, error: `Invalid state: ${stateCheck.error.message}` },
         { status: 400 },
       );
     }

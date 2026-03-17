@@ -4,6 +4,7 @@ import type { CriticalChoice } from '@/types/actions'
 
 interface CriticalChoicesProps {
   choices: CriticalChoice[]
+  isLoading: boolean
   staminaRemaining: number
   staminaPerDay: number
   currentDay: number
@@ -36,6 +37,7 @@ function formatEffects(choice: CriticalChoice): string[] {
 
 export function CriticalChoices({
   choices,
+  isLoading,
   staminaRemaining,
   staminaPerDay,
   currentDay,
@@ -50,7 +52,7 @@ export function CriticalChoices({
       </div>
       <div className="flex flex-wrap gap-3">
         {choices.map(choice => {
-          const disabled = choice.staminaCost > staminaRemaining
+          const disabled = isLoading || choice.staminaCost > staminaRemaining
           const effects = formatEffects(choice)
           const hasRisk = !!choice.effects.riskEvent
 

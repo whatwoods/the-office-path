@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createNewGame } from "@/engine/state";
 import { useGameStore } from "@/store/gameStore";
 import { useSettingsStore } from "@/store/settingsStore";
+import type { CriticalChoice, QuarterPlan } from "@/types/actions";
 import { DEFAULT_SETTINGS } from "@/types/settings";
 
 const mockFetch = vi.fn();
@@ -200,8 +201,8 @@ describe("useGameStore", () => {
         }),
     });
 
-    const plan = { actions: [{ action: "work_hard" as const }] };
-    await useGameStore.getState().submitQuarter(plan as any);
+    const plan: QuarterPlan = { actions: [{ action: "work_hard" }] };
+    await useGameStore.getState().submitQuarter(plan);
 
     expect(mockFetch).toHaveBeenCalledWith(
       "/api/game/turn",
@@ -241,8 +242,8 @@ describe("useGameStore", () => {
         }),
     });
 
-    const plan = { actions: [{ action: "work_hard" as const }] };
-    await useGameStore.getState().submitQuarter(plan as any);
+    const plan: QuarterPlan = { actions: [{ action: "work_hard" }] };
+    await useGameStore.getState().submitQuarter(plan);
 
     const callArgs = mockFetch.mock.calls[0];
     const body = JSON.parse(callArgs[1].body);
@@ -275,8 +276,8 @@ describe("useGameStore", () => {
         }),
     });
 
-    const plan = { actions: [{ action: "work_hard" as const }] };
-    await useGameStore.getState().submitQuarter(plan as any);
+    const plan: QuarterPlan = { actions: [{ action: "work_hard" }] };
+    await useGameStore.getState().submitQuarter(plan);
 
     expect(storage["office_path_save_auto"]).toBeUndefined();
   });
@@ -304,8 +305,8 @@ describe("useGameStore", () => {
         }),
     });
 
-    const plan = { actions: [{ action: "work_hard" as const }] };
-    await useGameStore.getState().submitQuarter(plan as any);
+    const plan: QuarterPlan = { actions: [{ action: "work_hard" }] };
+    await useGameStore.getState().submitQuarter(plan);
 
     expect(useGameStore.getState().lastPerformance).toEqual({
       rating: "A",
@@ -338,14 +339,14 @@ describe("useGameStore", () => {
         }),
     });
 
-    const choice = {
+    const choice: CriticalChoice = {
       choiceId: "test_a",
       label: "认真听培训",
       staminaCost: 1,
       effects: { statChanges: { professional: 2 } },
       category: "学习",
     };
-    await useGameStore.getState().submitChoice(choice as any);
+    await useGameStore.getState().submitChoice(choice);
 
     expect(mockFetch).toHaveBeenCalledWith(
       "/api/game/turn",
@@ -376,14 +377,14 @@ describe("useGameStore", () => {
         }),
     });
 
-    const choice = {
+    const choice: CriticalChoice = {
       choiceId: "test_a",
       label: "认真听培训",
       staminaCost: 1,
       effects: { statChanges: { professional: 2 } },
       category: "学习",
     };
-    await useGameStore.getState().submitChoice(choice as any);
+    await useGameStore.getState().submitChoice(choice);
 
     const callArgs = mockFetch.mock.calls[0];
     const body = JSON.parse(callArgs[1].body);
@@ -426,14 +427,14 @@ describe("useGameStore", () => {
         }),
     });
 
-    const choice = {
+    const choice: CriticalChoice = {
       choiceId: "final_choice",
       label: "完成最后一天",
       staminaCost: 1,
       effects: {},
       category: "表现",
     };
-    await useGameStore.getState().submitChoice(choice as any);
+    await useGameStore.getState().submitChoice(choice);
 
     expect(useGameStore.getState().criticalChoices).toEqual([]);
     expect(useGameStore.getState().showQuarterTransition).toBe(true);
@@ -712,23 +713,27 @@ describe("useGameStore", () => {
     expect(useGameStore.getState().error).toBe("存档不存在");
   });
 
-  it("refreshState fetches promotion info", async () => {
-    const mockState = createNewGame();
-    useGameStore.setState({ state: mockState });
+  it("loadGame derives promotion info from the loaded state", () => {
+    const promotableState = createNewGame();
+    promotableState.job.totalQuarters = 1;
+    useGameStore.setState({ state: promotableState });
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          success: true,
-          state: mockState,
-          computed: {
-            promotionEligible: true,
-            promotionNextLevels: ["L2"],
-            promotionFailReasons: [],
-          },
-        }),
+    useGameStore.getState().saveGame("slot1");
+    useGameStore.setState({ state: null, promotionInfo: null });
+
+    useGameStore.getState().loadGame("slot1");
+
+    expect(useGameStore.getState().promotionInfo).toEqual({
+      eligible: true,
+      nextLevels: ["L2"],
+      failReasons: [],
     });
+  });
+
+  it("refreshState derives promotion info from local state", async () => {
+    const mockState = createNewGame();
+    mockState.job.totalQuarters = 1;
+    useGameStore.setState({ state: mockState });
 
     await useGameStore.getState().refreshState();
 
@@ -737,6 +742,23 @@ describe("useGameStore", () => {
       nextLevels: ["L2"],
       failReasons: [],
     });
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("submitChoice ignores duplicate requests while already loading", async () => {
+    const mockState = createNewGame();
+    const choice: CriticalChoice = {
+      choiceId: "onboarding_d1_a",
+      label: "先熟悉环境",
+      staminaCost: 1,
+      effects: {},
+      category: "学习",
+    };
+    useGameStore.setState({ state: mockState, isLoading: true });
+
+    await useGameStore.getState().submitChoice(choice);
+
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it("dismissQuarterTransition clears the flag", () => {

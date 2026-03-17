@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { SettingsModal } from '@/components/game/SettingsModal'
 import { PixelButton } from '@/components/ui/PixelButton'
 import { SaveModal } from '@/components/game/SaveModal'
+import { ErrorBanner } from '@/components/game/ErrorBanner'
 import { useGameStore } from '@/store/gameStore'
 import { useSettingsStore } from '@/store/settingsStore'
 
@@ -20,11 +21,17 @@ export default function LandingPage() {
 
   const handleNewGame = async () => {
     await newGame()
-    router.push('/game')
+    if (useGameStore.getState().state) {
+      router.push('/game')
+    }
   }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--pixel-bg)]">
+      <div className="w-full">
+        <ErrorBanner />
+      </div>
+
       {/* 小屏幕提示 */}
       <div className="block min-[1024px]:hidden p-8 text-center text-[var(--pixel-text-amber)]">
         请使用电脑访问

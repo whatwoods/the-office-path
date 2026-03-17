@@ -60,7 +60,7 @@ export function NarrativeDisplay({ segments, onComplete }: NarrativeDisplayProps
     if (segments.length > 0 && segmentComplete && isLastSegment) {
       onComplete()
     }
-  }, [segmentComplete, isLastSegment, onComplete])
+  }, [segments.length, segmentComplete, isLastSegment, onComplete])
 
   const handleSkip = useCallback(() => {
     setSkipped(true)

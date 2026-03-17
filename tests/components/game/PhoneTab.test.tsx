@@ -34,6 +34,24 @@ describe('PhoneTab', () => {
     expect(useGameStore.getState().activePhoneApp).toBe('xiaoxin')
   })
 
+  it('marks messages as read when opening an app', async () => {
+    const user = userEvent.setup()
+    render(<PhoneTab />)
+
+    await user.click(screen.getByText('小信'))
+
+    const xiaoxinMessages = useGameStore
+      .getState()
+      .state!.phoneMessages.filter(message => message.app === 'xiaoxin')
+
+    expect(xiaoxinMessages.every(message => message.read)).toBe(true)
+    expect(
+      useGameStore
+        .getState()
+        .state!.phoneMessages.find(message => message.id === '2')?.read,
+    ).toBe(false)
+  })
+
   it('shows back button in app view', async () => {
     useGameStore.setState({ activePhoneApp: 'xiaoxin' })
     render(<PhoneTab />)

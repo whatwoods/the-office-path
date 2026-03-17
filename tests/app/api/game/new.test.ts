@@ -67,4 +67,20 @@ describe("POST /api/game/new", () => {
       aiConfig,
     );
   });
+
+  it("returns a JSON 500 response when the narrative agent throws", async () => {
+    mockedRunNarrativeAgent.mockRejectedValueOnce(new Error("AI provider missing key"));
+
+    const req = new Request("http://localhost/api/game/new", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+
+    const res = await POST(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(json.success).toBe(false);
+    expect(json.error).toBe("AI provider missing key");
+  });
 });

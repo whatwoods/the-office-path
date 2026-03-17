@@ -6,7 +6,6 @@ interface SubmitButtonProps {
   isLoading: boolean
   isCritical: boolean
   staminaRemaining: number
-  staminaMax: number
   onSubmit: () => void
 }
 
@@ -14,7 +13,6 @@ export function SubmitButton({
   isLoading,
   isCritical,
   staminaRemaining,
-  staminaMax,
   onSubmit,
 }: SubmitButtonProps) {
   const handleClick = () => {

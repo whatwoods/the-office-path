@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseNarrative, type NarrativeSegment } from '@/lib/narrative'
+import { parseNarrative } from '@/lib/narrative'
 
 describe('parseNarrative', () => {
   it('parses plain text into a single segment', () => {
