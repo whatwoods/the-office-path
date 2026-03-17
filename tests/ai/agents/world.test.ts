@@ -53,7 +53,7 @@ describe("runWorldAgent", () => {
       prompt: string;
     };
     expect(call.system).toContain("第1阶段");
-    expect(call.prompt).toContain("星辰互联");
+    expect(call.prompt).toContain(makeInput().state.job.companyName);
   });
 
   it("adjusts prompt for phase 2", async () => {

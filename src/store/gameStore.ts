@@ -17,7 +17,7 @@ import { useSettingsStore } from "@/store/settingsStore";
 import type { CriticalChoice, QuarterPlan } from "@/types/actions";
 import type { ExecutiveQuarterPlan, Phase2Path } from "@/types/executive";
 import type { GameEvent } from "@/types/events";
-import type { GameState, PhoneApp } from "@/types/game";
+import type { GameState, MajorType, PhoneApp } from "@/types/game";
 import type { AIConfig } from "@/types/settings";
 
 interface PromotionInfo {
@@ -70,7 +70,7 @@ interface GameStore {
   showQuarterTransition: boolean;
   lastPerformance: PerformanceInfo | null;
 
-  newGame: () => Promise<void>;
+  newGame: (params?: { major?: MajorType; playerName?: string }) => Promise<void>;
   submitQuarter: (plan: QuarterPlan | ExecutiveQuarterPlan) => Promise<void>;
   submitChoice: (choice: CriticalChoice) => Promise<void>;
   resignStartup: (path?: Phase2Path) => Promise<void>;
@@ -107,14 +107,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
   showQuarterTransition: false,
   lastPerformance: null,
 
-  newGame: async () => {
+  newGame: async (params) => {
     if (get().isLoading) return;
     set({ isLoading: true, error: null });
     try {
       const res = await fetch("/api/game/new", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...buildAIConfig() }),
+        body: JSON.stringify({
+          ...buildAIConfig(),
+          major: params?.major,
+          playerName: params?.playerName,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {

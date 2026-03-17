@@ -23,8 +23,13 @@ const MIGRATIONS: Record<string, MigrationFn> = {
       npcs,
     };
   },
+  "1.1→1.2": (data) => ({
+    ...data,
+    version: "1.2",
+    playerName: (data.playerName as string | undefined) ?? "新员工",
+  }),
 };
-const VERSION_CHAIN = ["1.0", "1.1"];
+const VERSION_CHAIN = ["1.0", "1.1", "1.2"];
 
 export function migrate(
   data: Record<string, unknown>,

@@ -2,13 +2,20 @@ import { createNewGame } from "@/engine/state";
 import { runNarrativeAgent } from "@/ai/agents/narrative";
 import { validateChoices } from "@/ai/orchestration/conflict";
 import type { AgentInput } from "@/types/agents";
-import type { CriticalPeriodType } from "@/types/game";
+import type { CriticalPeriodType, MajorType } from "@/types/game";
 import type { AIConfig } from "@/types/settings";
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { aiConfig?: AIConfig };
-    const state = createNewGame();
+    const body = (await request.json()) as {
+      aiConfig?: AIConfig;
+      major?: MajorType;
+      playerName?: string;
+    };
+    const state = createNewGame({
+      major: body.major,
+      playerName: body.playerName,
+    });
 
     const agentInput: AgentInput = { state, recentHistory: [] };
     const worldContext = {
@@ -25,7 +32,7 @@ export async function POST(request: Request) {
       { npcActions: [], chatMessages: [] },
       [],
       true,
-      "玩家入职了新公司。",
+      `玩家入职了${state.job.companyName}。`,
       true,
       body.aiConfig,
     );

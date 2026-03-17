@@ -6,12 +6,10 @@ import { SettingsModal } from '@/components/game/SettingsModal'
 import { PixelButton } from '@/components/ui/PixelButton'
 import { SaveModal } from '@/components/game/SaveModal'
 import { ErrorBanner } from '@/components/game/ErrorBanner'
-import { useGameStore } from '@/store/gameStore'
 import { useSettingsStore } from '@/store/settingsStore'
 
 export default function LandingPage() {
   const router = useRouter()
-  const { newGame, isLoading } = useGameStore()
   const [showLoad, setShowLoad] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
 
@@ -19,11 +17,8 @@ export default function LandingPage() {
     useSettingsStore.getState().loadSettings()
   }, [])
 
-  const handleNewGame = async () => {
-    await newGame()
-    if (useGameStore.getState().state) {
-      router.push('/game')
-    }
+  const handleNewGame = () => {
+    router.push('/intro')
   }
 
   return (
@@ -50,9 +45,7 @@ export default function LandingPage() {
 
         {/* 菜单按钮 */}
         <div className="flex flex-col gap-4">
-          <PixelButton onClick={handleNewGame} disabled={isLoading}>
-            {isLoading ? '创建中...' : '新游戏'}
-          </PixelButton>
+          <PixelButton onClick={handleNewGame}>新游戏</PixelButton>
           <PixelButton onClick={() => setShowLoad(true)}>
             读取存档
           </PixelButton>
