@@ -1,27 +1,73 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { createDeepSeek } from "@ai-sdk/deepseek";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
-import type { AIConfig } from "@/types/settings";
+import { PROVIDER_CATALOG, type AgentName } from "@/ai/providerCatalog";
+import type { AIConfig, AIProvider } from "@/types/settings";
 
 export type { AIConfig } from "@/types/settings";
 
-export type ModelSpec = `${"openai" | "anthropic" | "deepseek"}:${string}`;
+export type ModelSpec = `${AIProvider}:${string}`;
 
-const providers = {
-  openai: createOpenAI({ apiKey: process.env.OPENAI_API_KEY ?? "" }),
-  anthropic: createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY ?? "" }),
-  deepseek: createDeepSeek({ apiKey: process.env.DEEPSEEK_API_KEY ?? "" }),
-} as const;
+type ModelProvider = (modelId: string) => unknown;
 
-type ProviderName = keyof typeof providers;
+function getProviderApiKey(providerName: AIProvider): string {
+  const envApiKey = PROVIDER_CATALOG[providerName].envApiKey;
+  return process.env[envApiKey] ?? "";
+}
 
-const providerFactories = {
-  openai: createOpenAI,
-  anthropic: createAnthropic,
-  deepseek: createDeepSeek,
-} as const;
+function createProvider(
+  providerName: AIProvider,
+  apiKey: string,
+  baseUrl?: string,
+): ModelProvider {
+  const metadata = PROVIDER_CATALOG[providerName];
 
-export function getModel(spec: ModelSpec, dynamicApiKey?: string) {
+  if (metadata.kind === "anthropic") {
+    return createAnthropic({ apiKey });
+  }
+
+  if (metadata.kind === "gemini") {
+    return createGoogleGenerativeAI({
+      apiKey,
+      baseURL: baseUrl,
+      name: "gemini",
+    });
+  }
+
+  return createOpenAI({
+    apiKey,
+    baseURL: baseUrl,
+    name: providerName,
+  });
+}
+
+const providers = Object.fromEntries(
+  (Object.keys(PROVIDER_CATALOG) as AIProvider[]).map((providerName) => {
+    const metadata = PROVIDER_CATALOG[providerName];
+    return [
+      providerName,
+      createProvider(
+        providerName,
+        getProviderApiKey(providerName),
+        metadata.defaultBaseUrl,
+      ),
+    ];
+  }),
+) as Record<AIProvider, ModelProvider>;
+
+function toModelSpec(providerName: AIProvider, model: string): ModelSpec {
+  if (model.includes(":")) {
+    return model as ModelSpec;
+  }
+
+  return `${providerName}:${model}` as ModelSpec;
+}
+
+export function getModel(
+  spec: ModelSpec,
+  dynamicApiKey?: string,
+  dynamicBaseUrl?: string,
+) {
   if (!spec.includes(":")) {
     throw new Error(
       `Invalid model spec: "${spec}". Expected format "provider:model-id"`,
@@ -31,18 +77,31 @@ export function getModel(spec: ModelSpec, dynamicApiKey?: string) {
   const [providerName, ...rest] = spec.split(":");
   const modelId = rest.join(":");
 
-  if (!(providerName in providers)) {
+  if (!modelId) {
+    throw new Error(
+      `Invalid model spec: "${spec}". Expected format "provider:model-id"`,
+    );
+  }
+
+  if (!(providerName in PROVIDER_CATALOG)) {
     throw new Error(`Unknown AI provider: ${providerName}`);
   }
 
-  if (dynamicApiKey) {
-    const factory = providerFactories[providerName as ProviderName];
-    const dynamicProvider = factory({ apiKey: dynamicApiKey });
+  const provider = providerName as AIProvider;
+  const metadata = PROVIDER_CATALOG[provider];
+  const hasDynamicApiKey = dynamicApiKey !== undefined;
+  const hasDynamicBaseUrl = dynamicBaseUrl !== undefined;
+
+  if (hasDynamicApiKey || hasDynamicBaseUrl) {
+    const dynamicProvider = createProvider(
+      provider,
+      dynamicApiKey ?? getProviderApiKey(provider),
+      dynamicBaseUrl ?? metadata.defaultBaseUrl,
+    );
     return dynamicProvider(modelId);
   }
 
-  const provider = providers[providerName as ProviderName];
-  return provider(modelId);
+  return providers[provider](modelId);
 }
 
 export const AGENT_MODELS = {
@@ -52,32 +111,8 @@ export const AGENT_MODELS = {
   narrative: (process.env.NARRATIVE_AGENT_MODEL ?? "openai:gpt-4o") as ModelSpec,
 } as const;
 
-const DEFAULT_MODELS_BY_PROVIDER: Record<
-  ProviderName,
-  Record<keyof typeof AGENT_MODELS, string>
-> = {
-  openai: {
-    world: "gpt-4o-mini",
-    event: "gpt-4o-mini",
-    npc: "gpt-4o",
-    narrative: "gpt-4o",
-  },
-  anthropic: {
-    world: "claude-sonnet-4-20250514",
-    event: "claude-sonnet-4-20250514",
-    npc: "claude-sonnet-4-20250514",
-    narrative: "claude-sonnet-4-20250514",
-  },
-  deepseek: {
-    world: "deepseek-chat",
-    event: "deepseek-chat",
-    npc: "deepseek-chat",
-    narrative: "deepseek-chat",
-  },
-};
-
 export function resolveAgentModel(
-  agent: keyof typeof AGENT_MODELS,
+  agent: AgentName,
   aiConfig?: AIConfig,
 ): ModelSpec {
   if (!aiConfig) {
@@ -86,9 +121,17 @@ export function resolveAgentModel(
 
   const override = aiConfig.modelOverrides?.[agent];
   if (override) {
-    return override as ModelSpec;
+    return toModelSpec(aiConfig.provider, override);
   }
 
-  const modelId = DEFAULT_MODELS_BY_PROVIDER[aiConfig.provider][agent];
-  return `${aiConfig.provider}:${modelId}` as ModelSpec;
+  if (aiConfig.defaultModel) {
+    return toModelSpec(aiConfig.provider, aiConfig.defaultModel);
+  }
+
+  const providerDefault = PROVIDER_CATALOG[aiConfig.provider].defaultModels?.[agent];
+  if (providerDefault) {
+    return `${aiConfig.provider}:${providerDefault}` as ModelSpec;
+  }
+
+  return AGENT_MODELS[agent];
 }

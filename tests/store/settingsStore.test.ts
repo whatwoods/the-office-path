@@ -82,6 +82,8 @@ describe('useSettingsStore', () => {
 
     const { settings } = useSettingsStore.getState()
     expect(settings.ai.provider).toBe('deepseek')
+    expect(settings.ai.baseUrl).toBe('')
+    expect(settings.ai.defaultModel).toBe('')
     expect(settings.gameplay.autoSave).toBe(true)
   })
 
