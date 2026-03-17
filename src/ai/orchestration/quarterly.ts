@@ -24,6 +24,7 @@ import type {
   WorldAgentOutput,
 } from "@/types/agents";
 import type { GameState, PhoneApp, PhoneMessage } from "@/types/game";
+import type { AIConfig } from "@/types/settings";
 
 export interface QuarterlyPipelineResult {
   state: GameState;
@@ -76,6 +77,7 @@ export function deduplicateMessages(
 export async function runQuarterlyPipeline(
   state: GameState,
   plan: QuarterPlan,
+  aiConfig?: AIConfig,
 ): Promise<QuarterlyPipelineResult> {
   const beforeAttributes = { ...state.player };
 
@@ -85,9 +87,9 @@ export async function runQuarterlyPipeline(
   const recentHistory = getRecentHistory(settledState.history);
   const agentInput: AgentInput = { state: settledState, recentHistory };
 
-  const worldOutput = await runWorldAgent(agentInput);
+  const worldOutput = await runWorldAgent(agentInput, aiConfig);
 
-  const rawEventOutput = await runEventAgent(agentInput, worldOutput);
+  const rawEventOutput = await runEventAgent(agentInput, worldOutput, aiConfig);
   const worldValidatedEvents = validateEvents(rawEventOutput.events, worldOutput);
   const npcValidatedEvents = validateEventNPCConsistency(
     worldValidatedEvents,
@@ -112,6 +114,7 @@ export async function runQuarterlyPipeline(
     eventOutput,
     plan.actions,
     phoneReplyContext,
+    aiConfig,
   );
   const npcOutput = validateNPCActions(rawNPCOutput, settledState.npcs);
 
@@ -164,6 +167,8 @@ export async function runQuarterlyPipeline(
     plan.actions,
     false,
     phoneReplyContext,
+    false,
+    aiConfig,
   );
 
   for (const key of Object.keys(settledState.player) as Array<
@@ -212,7 +217,8 @@ export async function runQuarterlyPipeline(
       [],
       true,
       `事件触发了关键期：${criticalEvent.title}`,
-      true
+      true,
+      aiConfig,
     );
 
     if (openingChoices.choices) {

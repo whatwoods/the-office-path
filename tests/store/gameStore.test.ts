@@ -1,6 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { useGameStore } from '@/store/gameStore'
 import { createNewGame } from '@/engine/state'
+import { useSettingsStore } from '@/store/settingsStore'
+import { DEFAULT_SETTINGS } from '@/types/settings'
 
 // Mock fetch
 const mockFetch = vi.fn()
@@ -32,6 +34,7 @@ describe('useGameStore', () => {
     })
     mockFetch.mockReset()
     Object.keys(storage).forEach(k => delete storage[k])
+    useSettingsStore.setState({ settings: structuredClone(DEFAULT_SETTINGS) })
   })
 
   it('has correct initial state', () => {
@@ -73,10 +76,56 @@ describe('useGameStore', () => {
     expect(store.narrativeQueue).toEqual(['入职第一天，你抱着笔记本走进了工位区。'])
     expect(store.criticalChoices).toEqual(openingChoices)
     expect(store.isLoading).toBe(false)
-    expect(mockFetch).toHaveBeenCalledWith('/api/game/new', {
+    expect(mockFetch).toHaveBeenCalledWith('/api/game/new', expect.objectContaining({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+    }))
+  })
+
+  it('newGame includes aiConfig in request body when apiKey is set', async () => {
+    useSettingsStore
+      .getState()
+      .updateAI({ provider: 'anthropic', apiKey: 'sk-test-key' })
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({
+        success: true,
+        state: createNewGame(),
+        narrative: '入职了。',
+        criticalChoices: [],
+      }),
     })
+
+    await useGameStore.getState().newGame()
+
+    const callArgs = mockFetch.mock.calls[0]
+    const body = JSON.parse(callArgs[1].body)
+    expect(body.aiConfig).toEqual({
+      provider: 'anthropic',
+      apiKey: 'sk-test-key',
+      modelOverrides: {},
+    })
+  })
+
+  it('newGame omits aiConfig when apiKey is empty', async () => {
+    useSettingsStore.setState({ settings: structuredClone(DEFAULT_SETTINGS) })
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({
+        success: true,
+        state: createNewGame(),
+        narrative: '入职了。',
+        criticalChoices: [],
+      }),
+    })
+
+    await useGameStore.getState().newGame()
+
+    const callArgs = mockFetch.mock.calls[0]
+    const body = JSON.parse(callArgs[1].body)
+    expect(body.aiConfig).toBeUndefined()
   })
 
   it('newGame sets error on failure', async () => {
@@ -157,6 +206,68 @@ describe('useGameStore', () => {
     expect(storage['office_path_save_auto']).toBeDefined()
   })
 
+  it('submitQuarter includes aiConfig in request body when apiKey is set', async () => {
+    const mockState = createNewGame()
+    const quarterlyState = {
+      ...mockState,
+      timeMode: 'quarterly' as const,
+      criticalPeriod: null,
+      staminaRemaining: 10,
+    }
+    useGameStore.setState({ state: quarterlyState })
+    useSettingsStore
+      .getState()
+      .updateAI({ provider: 'deepseek', apiKey: 'dk-quarter-key' })
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({
+        success: true,
+        state: quarterlyState,
+        narrative: '季度...',
+        events: [],
+      }),
+    })
+
+    const plan = { actions: [{ action: 'work_hard' as const }] }
+    await useGameStore.getState().submitQuarter(plan as any)
+
+    const callArgs = mockFetch.mock.calls[0]
+    const body = JSON.parse(callArgs[1].body)
+    expect(body.aiConfig).toEqual({
+      provider: 'deepseek',
+      apiKey: 'dk-quarter-key',
+      modelOverrides: {},
+    })
+  })
+
+  it('submitQuarter respects autoSave setting', async () => {
+    const mockState = createNewGame()
+    const quarterlyState = {
+      ...mockState,
+      timeMode: 'quarterly' as const,
+      criticalPeriod: null,
+      staminaRemaining: 10,
+    }
+    useGameStore.setState({ state: quarterlyState })
+    useSettingsStore.getState().updateGameplay({ autoSave: false })
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({
+        success: true,
+        state: mockState,
+        narrative: '季度...',
+        events: [],
+      }),
+    })
+
+    const plan = { actions: [{ action: 'work_hard' as const }] }
+    await useGameStore.getState().submitQuarter(plan as any)
+
+    expect(storage['office_path_save_auto']).toBeUndefined()
+  })
+
   it('submitQuarter stores performance when present', async () => {
     const mockState = createNewGame()
     const quarterlyState = {
@@ -227,6 +338,41 @@ describe('useGameStore', () => {
     }))
     expect(useGameStore.getState().criticalChoices).toEqual(nextChoices)
     expect(useGameStore.getState().showQuarterTransition).toBe(false)
+  })
+
+  it('submitChoice includes aiConfig in request body when apiKey is set', async () => {
+    const mockState = createNewGame()
+    useGameStore.setState({ state: mockState })
+    useSettingsStore
+      .getState()
+      .updateAI({ provider: 'anthropic', apiKey: 'sk-choice-key' })
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({
+        success: true,
+        state: mockState,
+        narrative: '你选择了...',
+        nextChoices: [],
+      }),
+    })
+
+    const choice = {
+      choiceId: 'test_a',
+      label: '认真听培训',
+      staminaCost: 1,
+      effects: { statChanges: { professional: 2 } },
+      category: '学习',
+    }
+    await useGameStore.getState().submitChoice(choice as any)
+
+    const callArgs = mockFetch.mock.calls[0]
+    const body = JSON.parse(callArgs[1].body)
+    expect(body.aiConfig).toEqual({
+      provider: 'anthropic',
+      apiKey: 'sk-choice-key',
+      modelOverrides: {},
+    })
   })
 
   it('submitChoice clears criticalChoices and triggers transition when critical period completes', async () => {
@@ -322,6 +468,53 @@ describe('useGameStore', () => {
     }))
     expect(useGameStore.getState().state?.phase).toBe(2)
     expect(useGameStore.getState().criticalChoices).toHaveLength(1)
+  })
+
+  it('resignStartup includes aiConfig in request body when apiKey is set', async () => {
+    const mockState = {
+      ...createNewGame(),
+      timeMode: 'quarterly' as const,
+      criticalPeriod: null,
+      job: {
+        ...createNewGame().job,
+        level: 'L8' as const,
+      },
+    }
+    useGameStore.setState({ state: mockState })
+    useSettingsStore
+      .getState()
+      .updateAI({ provider: 'openai', apiKey: 'sk-resign-key' })
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({
+        success: true,
+        state: {
+          ...mockState,
+          phase: 2,
+          timeMode: 'critical',
+          criticalPeriod: {
+            type: 'startup_launch',
+            currentDay: 1,
+            maxDays: 7,
+            staminaPerDay: 3,
+          },
+          staminaRemaining: 3,
+        },
+        narrative: '创业了。',
+        criticalChoices: [],
+      }),
+    })
+
+    await useGameStore.getState().resignStartup()
+
+    const callArgs = mockFetch.mock.calls[0]
+    const body = JSON.parse(callArgs[1].body)
+    expect(body.aiConfig).toEqual({
+      provider: 'openai',
+      apiKey: 'sk-resign-key',
+      modelOverrides: {},
+    })
   })
 
   it('saveGame and loadGame work with localStorage', () => {

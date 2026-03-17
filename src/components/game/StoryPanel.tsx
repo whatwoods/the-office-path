@@ -4,11 +4,18 @@ import { useCallback, useMemo } from 'react'
 import { useGameStore } from '@/store/gameStore'
 import { NarrativeDisplay } from '@/components/game/NarrativeDisplay'
 import { parseNarrative } from '@/lib/narrative'
+import { useSettingsStore } from '@/store/settingsStore'
 
 export function StoryPanel() {
   const narrativeQueue = useGameStore(s => s.narrativeQueue)
+  const fontSize = useSettingsStore(s => s.settings.display.fontSize)
 
   const currentNarrative = narrativeQueue[0] ?? null
+  const fontSizeClass = {
+    small: 'text-xs',
+    medium: 'text-sm',
+    large: 'text-base',
+  }[fontSize]
 
   const segments = useMemo(() => {
     if (!currentNarrative) return []
@@ -31,7 +38,7 @@ export function StoryPanel() {
   }
 
   return (
-    <div data-testid="story-panel" className="p-4">
+    <div data-testid="story-panel" className={`p-4 ${fontSizeClass}`}>
       <NarrativeDisplay segments={segments} onComplete={handleComplete} />
     </div>
   )

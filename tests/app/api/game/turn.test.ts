@@ -1,5 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/game/turn/route";
+import { runCriticalDayPipeline } from "@/ai/orchestration/critical";
+import { runQuarterlyPipeline } from "@/ai/orchestration/quarterly";
 import { createNewGame } from "@/engine/state";
 import type { QuarterPlan } from "@/types/actions";
 
@@ -31,7 +33,14 @@ vi.mock("@/ai/orchestration/critical", () => ({
   }),
 }));
 
+const mockedRunQuarterlyPipeline = vi.mocked(runQuarterlyPipeline);
+const mockedRunCriticalDayPipeline = vi.mocked(runCriticalDayPipeline);
+
 describe("POST /api/game/turn", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("returns criticalChoices for quarterly mode when critical event triggers", async () => {
     const state = createNewGame();
     state.timeMode = "quarterly";
@@ -79,5 +88,54 @@ describe("POST /api/game/turn", () => {
     expect(json.success).toBe(true);
     expect(Array.isArray(json.nextChoices)).toBe(true);
     expect(json.npcActions).toBeUndefined();
+  });
+
+  it("passes aiConfig to the quarterly pipeline when provided", async () => {
+    const state = createNewGame();
+    state.timeMode = "quarterly";
+    const plan: QuarterPlan = { actions: [] };
+    const aiConfig = {
+      provider: "openai" as const,
+      apiKey: "sk-turn-quarterly",
+      modelOverrides: {},
+    };
+
+    const req = new Request("http://localhost/api/game/turn", {
+      method: "POST",
+      body: JSON.stringify({ state, plan, aiConfig }),
+    });
+
+    await POST(req);
+
+    expect(mockedRunQuarterlyPipeline).toHaveBeenCalledWith(state, plan, aiConfig);
+  });
+
+  it("passes aiConfig to the critical-day pipeline when provided", async () => {
+    const state = createNewGame();
+    const choice = {
+      choiceId: "onboarding_d1_a",
+      label: "认真听培训",
+      staminaCost: 1,
+      effects: {},
+      category: "学习",
+    };
+    const aiConfig = {
+      provider: "deepseek" as const,
+      apiKey: "dk-turn-critical",
+      modelOverrides: {},
+    };
+
+    const req = new Request("http://localhost/api/game/turn", {
+      method: "POST",
+      body: JSON.stringify({ state, choice, aiConfig }),
+    });
+
+    await POST(req);
+
+    expect(mockedRunCriticalDayPipeline).toHaveBeenCalledWith(
+      state,
+      choice,
+      aiConfig,
+    );
   });
 });

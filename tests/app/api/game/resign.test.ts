@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/game/resign/route";
+import { runNarrativeAgent } from "@/ai/agents/narrative";
 import { createNewGame } from "@/engine/state";
 
 vi.mock("@/ai/agents/narrative", () => ({
@@ -17,7 +18,13 @@ vi.mock("@/ai/agents/narrative", () => ({
   }),
 }));
 
+const mockedRunNarrativeAgent = vi.mocked(runNarrativeAgent);
+
 describe("POST /api/game/resign", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("eligible level returns 200 with state, narrative and criticalChoices", async () => {
     const state = createNewGame();
     state.job.level = "L8"; // L8 makes it eligible
@@ -55,5 +62,34 @@ describe("POST /api/game/resign", () => {
     const json = await res.json();
     expect(json.success).toBe(false);
     expect(json.error).toBe("等级不足以创业");
+  });
+
+  it("passes aiConfig to the startup narrative agent when provided", async () => {
+    const state = createNewGame();
+    state.job.level = "L8";
+    const aiConfig = {
+      provider: "anthropic" as const,
+      apiKey: "sk-resign-route",
+      modelOverrides: {},
+    };
+
+    const req = new Request("http://localhost/api/game/resign", {
+      method: "POST",
+      body: JSON.stringify({ state, aiConfig }),
+    });
+
+    await POST(req);
+
+    expect(mockedRunNarrativeAgent).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Array),
+      true,
+      "玩家离职创业了。",
+      true,
+      aiConfig,
+    );
   });
 });

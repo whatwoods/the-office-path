@@ -4,10 +4,11 @@ import { validateChoices } from "@/ai/orchestration/conflict";
 import { canStartup, transitionToPhase2 } from "@/engine/phase-transition";
 import type { AgentInput } from "@/types/agents";
 import type { CriticalPeriodType, GameState } from "@/types/game";
+import type { AIConfig } from "@/types/settings";
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { state?: GameState };
+    const body = (await request.json()) as { state?: GameState; aiConfig?: AIConfig };
 
     if (!body.state) {
       return Response.json({ success: false, error: "Missing state" }, { status: 400 });
@@ -48,7 +49,8 @@ export async function POST(request: Request) {
       [],
       true,
       "玩家离职创业了。",
-      true
+      true,
+      body.aiConfig,
     );
     
     let criticalChoices;

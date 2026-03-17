@@ -3,8 +3,10 @@ import { runNarrativeAgent } from "@/ai/agents/narrative";
 import { validateChoices } from "@/ai/orchestration/conflict";
 import type { AgentInput } from "@/types/agents";
 import type { CriticalPeriodType } from "@/types/game";
+import type { AIConfig } from "@/types/settings";
 
-export async function POST() {
+export async function POST(request: Request) {
+  const body = (await request.json()) as { aiConfig?: AIConfig };
   const state = createNewGame();
   
   const agentInput: AgentInput = { state, recentHistory: [] };
@@ -23,7 +25,8 @@ export async function POST() {
     [],
     true,
     "玩家入职了新公司。",
-    true
+    true,
+    body.aiConfig,
   );
   
   let criticalChoices;

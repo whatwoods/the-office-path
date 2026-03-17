@@ -19,10 +19,17 @@ import { runNPCAgent } from "@/ai/agents/npc";
 import { runCriticalDayPipeline } from "@/ai/orchestration/critical";
 import { createNewGame } from "@/engine/state";
 import type { CriticalChoice } from "@/types/actions";
+import type { AIConfig } from "@/types/settings";
 
 const mockedNPC = vi.mocked(runNPCAgent);
 const mockedEvent = vi.mocked(runEventAgent);
 const mockedNarrative = vi.mocked(runNarrativeAgent);
+
+const aiConfig: AIConfig = {
+  provider: "deepseek",
+  apiKey: "dk-critical-test",
+  modelOverrides: {},
+};
 
 describe("runCriticalDayPipeline", () => {
   beforeEach(() => {
@@ -127,6 +134,7 @@ describe("runCriticalDayPipeline", () => {
       true,
       expect.stringContaining("完成最后一天"),
       false,
+      undefined,
     );
   });
 
@@ -158,5 +166,43 @@ describe("runCriticalDayPipeline", () => {
     await runCriticalDayPipeline(state, choice);
 
     expect(callOrder).toEqual(["npc", "event", "narrative"]);
+  });
+
+  it("threads aiConfig through critical-day agents", async () => {
+    const state = createNewGame();
+    const choice: CriticalChoice = {
+      choiceId: "a",
+      label: "A",
+      staminaCost: 1,
+      effects: {},
+      category: "学习",
+    };
+
+    await runCriticalDayPipeline(state, choice, aiConfig);
+
+    expect(mockedNPC).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Array),
+      expect.any(String),
+      aiConfig,
+    );
+    expect(mockedEvent).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      aiConfig,
+    );
+    expect(mockedNarrative).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Array),
+      true,
+      expect.any(String),
+      true,
+      aiConfig,
+    );
   });
 });

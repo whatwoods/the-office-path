@@ -1,10 +1,13 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act, fireEvent } from '@testing-library/react'
 import { NarrativeDisplay } from '@/components/game/NarrativeDisplay'
+import { useSettingsStore } from '@/store/settingsStore'
+import { DEFAULT_SETTINGS } from '@/types/settings'
 
 describe('NarrativeDisplay', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    useSettingsStore.setState({ settings: structuredClone(DEFAULT_SETTINGS) })
   })
 
   afterEach(() => {
@@ -55,5 +58,22 @@ describe('NarrativeDisplay', () => {
     fireEvent.click(screen.getByText('跳过'))
 
     expect(screen.getByTestId('narrative-text').textContent).toBe('很长的一段文字内容在这里')
+  })
+
+  it('uses narrativeSpeed from settings store', () => {
+    useSettingsStore.getState().updateDisplay({ narrativeSpeed: 20 })
+
+    render(
+      <NarrativeDisplay
+        segments={[{ type: 'text', content: 'AB' }]}
+        onComplete={vi.fn()}
+      />,
+    )
+
+    act(() => { vi.advanceTimersByTime(20) })
+    expect(screen.getByTestId('narrative-text').textContent).toBe('A')
+
+    act(() => { vi.advanceTimersByTime(20) })
+    expect(screen.getByTestId('narrative-text').textContent).toBe('AB')
   })
 })

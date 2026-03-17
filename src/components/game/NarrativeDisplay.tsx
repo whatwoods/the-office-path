@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { NarrativeSegment } from '@/lib/narrative'
+import { useSettingsStore } from '@/store/settingsStore'
 
 interface NarrativeDisplayProps {
   segments: NarrativeSegment[]
   onComplete: () => void
 }
 
-const CHAR_INTERVAL = 40 // ms per character
 const SEGMENT_PAUSE = 300 // ms between segments
 
 export function NarrativeDisplay({ segments, onComplete }: NarrativeDisplayProps) {
@@ -16,6 +16,7 @@ export function NarrativeDisplay({ segments, onComplete }: NarrativeDisplayProps
   const [displayedChars, setDisplayedChars] = useState(0)
   const [skipped, setSkipped] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const narrativeSpeed = useSettingsStore(s => s.settings.display.narrativeSpeed)
 
   const currentSegment = segments[currentSegmentIdx]
   const isLastSegment = currentSegmentIdx >= segments.length - 1
@@ -35,12 +36,12 @@ export function NarrativeDisplay({ segments, onComplete }: NarrativeDisplayProps
         }
         return next
       })
-    }, CHAR_INTERVAL)
+    }, narrativeSpeed)
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
-  }, [currentSegmentIdx, skipped, currentSegment, segmentComplete])
+  }, [currentSegmentIdx, skipped, currentSegment, segmentComplete, narrativeSpeed])
 
   // Move to next segment after pause
   useEffect(() => {

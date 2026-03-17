@@ -1,6 +1,6 @@
 import { generateText, Output } from "ai";
 
-import { AGENT_MODELS, getModel } from "@/ai/provider";
+import { getModel, resolveAgentModel } from "@/ai/provider";
 import {
   CRITICAL_PERIOD_CATEGORIES,
   NarrativeAgentOutputSchema,
@@ -13,6 +13,7 @@ import type {
   WorldAgentOutput,
 } from "@/types/agents";
 import type { ActionAllocation } from "@/types/actions";
+import type { AIConfig } from "@/types/settings";
 
 function buildSystemPrompt(
   input: AgentInput,
@@ -130,9 +131,13 @@ export async function runNarrativeAgent(
   isCriticalPeriod: boolean,
   playerContext?: string,
   generateChoices: boolean = isCriticalPeriod,
+  aiConfig?: AIConfig,
 ): Promise<NarrativeAgentOutput> {
   const { output } = await generateText({
-    model: getModel(AGENT_MODELS.narrative),
+    model: getModel(
+      resolveAgentModel("narrative", aiConfig),
+      aiConfig?.apiKey,
+    ),
     output: Output.object({ schema: NarrativeAgentOutputSchema }),
     system: buildSystemPrompt(input, isCriticalPeriod, generateChoices),
     prompt: buildUserPrompt(
@@ -142,7 +147,7 @@ export async function runNarrativeAgent(
       npcContext,
       playerActions,
       playerContext,
-    ),
+    )
   });
 
   return output!;

@@ -1,0 +1,225 @@
+'use client'
+
+import { useState } from 'react'
+import { Modal } from '@/components/ui/Modal'
+import { useSettingsStore } from '@/store/settingsStore'
+
+interface SettingsModalProps {
+  open: boolean
+  onClose: () => void
+}
+
+type SettingsTab = 'ai' | 'display' | 'gameplay'
+
+const TAB_LABELS: Record<SettingsTab, string> = {
+  ai: 'AI 模型',
+  display: '显示',
+  gameplay: '游戏',
+}
+
+function AITab() {
+  const ai = useSettingsStore(s => s.settings.ai)
+  const updateAI = useSettingsStore(s => s.updateAI)
+  const [showKey, setShowKey] = useState(false)
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label
+          htmlFor="settings-provider"
+          className="mb-1 block text-xs text-[var(--pixel-text-dim)]"
+        >
+          AI 服务商
+        </label>
+        <select
+          id="settings-provider"
+          aria-label="AI 服务商"
+          className="pixel-border-light w-full bg-[var(--pixel-bg-light)] px-3 py-2 text-sm text-[var(--pixel-text)]"
+          value={ai.provider}
+          onChange={event => {
+            updateAI({
+              provider: event.target.value as 'openai' | 'anthropic' | 'deepseek',
+            })
+          }}
+        >
+          <option value="openai">OpenAI</option>
+          <option value="anthropic">Anthropic</option>
+          <option value="deepseek">DeepSeek</option>
+        </select>
+      </div>
+
+      <div>
+        <label
+          htmlFor="settings-api-key"
+          className="mb-1 block text-xs text-[var(--pixel-text-dim)]"
+        >
+          API Key
+        </label>
+        <div className="flex gap-2">
+          <input
+            id="settings-api-key"
+            aria-label="API Key"
+            type={showKey ? 'text' : 'password'}
+            className="pixel-border-light min-w-0 flex-1 bg-[var(--pixel-bg-light)] px-3 py-2 text-sm text-[var(--pixel-text)]"
+            value={ai.apiKey}
+            onChange={event => updateAI({ apiKey: event.target.value })}
+            placeholder="sk-..."
+          />
+          <button
+            type="button"
+            className="pixel-btn px-2 py-1 text-xs"
+            onClick={() => setShowKey(prev => !prev)}
+          >
+            {showKey ? '隐藏' : '查看'}
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs text-[var(--pixel-text-dim)]">模型覆盖（留空使用默认）</p>
+        {(['world', 'event', 'npc', 'narrative'] as const).map(agent => (
+          <div key={agent}>
+            <label
+              htmlFor={`settings-model-${agent}`}
+              className="mb-1 block text-[10px] uppercase tracking-wide text-[var(--pixel-text-dim)]"
+            >
+              {agent}
+            </label>
+            <input
+              id={`settings-model-${agent}`}
+              type="text"
+              className="pixel-border-light w-full bg-[var(--pixel-bg-light)] px-3 py-2 text-xs text-[var(--pixel-text)]"
+              value={ai.modelOverrides[agent] ?? ''}
+              onChange={event =>
+                updateAI({
+                  modelOverrides: {
+                    ...ai.modelOverrides,
+                    [agent]: event.target.value || undefined,
+                  },
+                })
+              }
+              placeholder={`${ai.provider}:model-id`}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function DisplayTab() {
+  const display = useSettingsStore(s => s.settings.display)
+  const updateDisplay = useSettingsStore(s => s.updateDisplay)
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label
+          htmlFor="settings-narrative-speed"
+          className="mb-1 block text-xs text-[var(--pixel-text-dim)]"
+        >
+          叙事速度
+        </label>
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-[var(--pixel-text-dim)]">快</span>
+          <input
+            id="settings-narrative-speed"
+            aria-label="叙事速度"
+            type="range"
+            min={10}
+            max={100}
+            step={5}
+            value={display.narrativeSpeed}
+            onChange={event =>
+              updateDisplay({ narrativeSpeed: Number(event.target.value) })
+            }
+            className="flex-1"
+          />
+          <span className="text-[10px] text-[var(--pixel-text-dim)]">慢</span>
+          <span className="w-12 text-right text-xs text-[var(--pixel-text)]">
+            {display.narrativeSpeed}ms
+          </span>
+        </div>
+      </div>
+
+      <div>
+        <label
+          htmlFor="settings-font-size"
+          className="mb-1 block text-xs text-[var(--pixel-text-dim)]"
+        >
+          字体大小
+        </label>
+        <select
+          id="settings-font-size"
+          aria-label="字体大小"
+          className="pixel-border-light w-full bg-[var(--pixel-bg-light)] px-3 py-2 text-sm text-[var(--pixel-text)]"
+          value={display.fontSize}
+          onChange={event =>
+            updateDisplay({
+              fontSize: event.target.value as 'small' | 'medium' | 'large',
+            })
+          }
+        >
+          <option value="small">小</option>
+          <option value="medium">中</option>
+          <option value="large">大</option>
+        </select>
+      </div>
+    </div>
+  )
+}
+
+function GameplayTab() {
+  const gameplay = useSettingsStore(s => s.settings.gameplay)
+  const updateGameplay = useSettingsStore(s => s.updateGameplay)
+
+  return (
+    <div className="space-y-4">
+      <div className="pixel-border-light flex items-center justify-between bg-[var(--pixel-bg-light)] p-3">
+        <label
+          htmlFor="settings-auto-save"
+          className="text-sm text-[var(--pixel-text)]"
+        >
+          自动存档
+        </label>
+        <input
+          id="settings-auto-save"
+          aria-label="自动存档"
+          type="checkbox"
+          checked={gameplay.autoSave}
+          onChange={event => updateGameplay({ autoSave: event.target.checked })}
+          className="h-4 w-4 accent-[var(--pixel-accent)]"
+        />
+      </div>
+    </div>
+  )
+}
+
+export function SettingsModal({ open, onClose }: SettingsModalProps) {
+  const [activeTab, setActiveTab] = useState<SettingsTab>('ai')
+
+  return (
+    <Modal open={open} onClose={onClose} title="设置">
+      <div className="mb-4 flex gap-2">
+        {(Object.entries(TAB_LABELS) as [SettingsTab, string][]).map(([tab, label]) => (
+          <button
+            key={tab}
+            type="button"
+            className={`pixel-btn px-3 py-1 text-xs ${
+              activeTab === tab
+                ? 'bg-[var(--pixel-accent)] text-[var(--pixel-bg)]'
+                : ''
+            }`}
+            onClick={() => setActiveTab(tab)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'ai' && <AITab />}
+      {activeTab === 'display' && <DisplayTab />}
+      {activeTab === 'gameplay' && <GameplayTab />}
+    </Modal>
+  )
+}

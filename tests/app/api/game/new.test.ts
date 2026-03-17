@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/game/new/route";
+import { runNarrativeAgent } from "@/ai/agents/narrative";
 
 vi.mock("@/ai/agents/narrative", () => ({
   runNarrativeAgent: vi.fn().mockResolvedValue({
@@ -16,9 +17,20 @@ vi.mock("@/ai/agents/narrative", () => ({
   }),
 }));
 
+const mockedRunNarrativeAgent = vi.mocked(runNarrativeAgent);
+
 describe("POST /api/game/new", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("returns narrative and criticalChoices along with new state", async () => {
-    const res = await POST();
+    const req = new Request("http://localhost/api/game/new", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+
+    const res = await POST(req);
     expect(res.status).toBe(200);
 
     const json = await res.json();
@@ -28,5 +40,31 @@ describe("POST /api/game/new", () => {
     expect(json.narrative).toBe("你入职了新公司。");
     expect(json.criticalChoices).toBeDefined();
     expect(json.criticalChoices.length).toBe(1);
+  });
+
+  it("passes aiConfig to the narrative agent when provided", async () => {
+    const aiConfig = {
+      provider: "anthropic" as const,
+      apiKey: "sk-new-route",
+      modelOverrides: { narrative: "anthropic:claude-sonnet-4-20250514" },
+    };
+    const req = new Request("http://localhost/api/game/new", {
+      method: "POST",
+      body: JSON.stringify({ aiConfig }),
+    });
+
+    await POST(req);
+
+    expect(mockedRunNarrativeAgent).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Array),
+      true,
+      "玩家入职了新公司。",
+      true,
+      aiConfig,
+    );
   });
 });

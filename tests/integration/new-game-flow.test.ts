@@ -40,9 +40,13 @@ describe('new game integration flow', () => {
       ],
     })
 
-    vi.stubGlobal('fetch', vi.fn(async (input: string) => {
+    vi.stubGlobal('fetch', vi.fn(async (input: string, init?: RequestInit) => {
       if (input === '/api/game/new') {
-        return newGamePost()
+        return newGamePost(new Request('http://localhost/api/game/new', {
+          method: 'POST',
+          headers: init?.headers,
+          body: init?.body,
+        }))
       }
 
       throw new Error(`Unexpected fetch: ${input}`)

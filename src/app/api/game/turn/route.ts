@@ -3,6 +3,7 @@ import { runCriticalDayPipeline } from "@/ai/orchestration/critical";
 import { runQuarterlyPipeline } from "@/ai/orchestration/quarterly";
 import type { CriticalChoice, QuarterPlan } from "@/types/actions";
 import type { GameState } from "@/types/game";
+import type { AIConfig } from "@/types/settings";
 
 export async function POST(request: Request) {
   try {
@@ -10,6 +11,7 @@ export async function POST(request: Request) {
       state?: GameState;
       plan?: QuarterPlan;
       choice?: CriticalChoice;
+      aiConfig?: AIConfig;
     };
 
     if (!body.state) {
@@ -40,7 +42,7 @@ export async function POST(request: Request) {
         );
       }
 
-      const result = await runCriticalDayPipeline(state, body.choice);
+      const result = await runCriticalDayPipeline(state, body.choice, body.aiConfig);
       return Response.json({
         success: true,
         state: result.state,
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await runQuarterlyPipeline(state, body.plan);
+    const result = await runQuarterlyPipeline(state, body.plan, body.aiConfig);
     return Response.json({
       success: true,
       state: result.state,

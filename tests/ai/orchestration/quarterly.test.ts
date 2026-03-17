@@ -21,6 +21,7 @@ import { runQuarterlyPipeline } from "@/ai/orchestration/quarterly";
 import { createNewGame } from "@/engine/state";
 import type { QuarterPlan } from "@/types/actions";
 import type { GameState } from "@/types/game";
+import type { AIConfig } from "@/types/settings";
 
 const mockedWorld = vi.mocked(runWorldAgent);
 const mockedEvent = vi.mocked(runEventAgent);
@@ -44,6 +45,12 @@ const plan: QuarterPlan = {
     { action: "socialize", target: "zhang_wei" },
     { action: "slack_off" },
   ],
+};
+
+const aiConfig: AIConfig = {
+  provider: "anthropic",
+  apiKey: "sk-quarterly-test",
+  modelOverrides: {},
 };
 
 describe("runQuarterlyPipeline", () => {
@@ -128,6 +135,7 @@ describe("runQuarterlyPipeline", () => {
     expect(mockedEvent).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({ economy: "stable" }),
+      undefined,
     );
   });
 
@@ -140,7 +148,8 @@ describe("runQuarterlyPipeline", () => {
       expect.objectContaining({ economy: "stable" }),
       expect.objectContaining({ events: expect.any(Array) }),
       expect.any(Array),
-      undefined
+      undefined,
+      undefined,
     );
   });
 
@@ -149,5 +158,37 @@ describe("runQuarterlyPipeline", () => {
     const result = await runQuarterlyPipeline(state, plan);
 
     expect(result.state.currentQuarter).toBeGreaterThan(state.currentQuarter);
+  });
+
+  it("threads aiConfig through every agent call", async () => {
+    const state = makeQuarterlyState();
+
+    await runQuarterlyPipeline(state, plan, aiConfig);
+
+    expect(mockedWorld).toHaveBeenCalledWith(expect.any(Object), aiConfig);
+    expect(mockedEvent).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      aiConfig,
+    );
+    expect(mockedNPC).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Array),
+      undefined,
+      aiConfig,
+    );
+    expect(mockedNarrative).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Array),
+      false,
+      undefined,
+      false,
+      aiConfig,
+    );
   });
 });

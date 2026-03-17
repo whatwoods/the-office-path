@@ -1,15 +1,22 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { SettingsModal } from '@/components/game/SettingsModal'
 import { PixelButton } from '@/components/ui/PixelButton'
 import { SaveModal } from '@/components/game/SaveModal'
 import { useGameStore } from '@/store/gameStore'
+import { useSettingsStore } from '@/store/settingsStore'
 
 export default function LandingPage() {
   const router = useRouter()
   const { newGame, isLoading } = useGameStore()
   const [showLoad, setShowLoad] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+
+  useEffect(() => {
+    useSettingsStore.getState().loadSettings()
+  }, [])
 
   const handleNewGame = async () => {
     await newGame()
@@ -42,6 +49,9 @@ export default function LandingPage() {
           <PixelButton onClick={() => setShowLoad(true)}>
             读取存档
           </PixelButton>
+          <PixelButton onClick={() => setShowSettings(true)}>
+            设置
+          </PixelButton>
         </div>
       </div>
 
@@ -50,6 +60,12 @@ export default function LandingPage() {
           open={showLoad}
           onClose={() => setShowLoad(false)}
           mode="load"
+        />
+      )}
+      {showSettings && (
+        <SettingsModal
+          open={showSettings}
+          onClose={() => setShowSettings(false)}
         />
       )}
     </div>

@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { useGameStore } from '@/store/gameStore'
 import { TopStatusBar } from '@/components/game/TopStatusBar'
 import { createNewGame } from '@/engine/state'
@@ -19,6 +20,15 @@ describe('TopStatusBar', () => {
   it('displays game title', () => {
     render(<TopStatusBar />)
     expect(screen.getByText('打工之道')).toBeDefined()
+  })
+
+  it('opens settings modal from the gear button', async () => {
+    const user = userEvent.setup()
+    render(<TopStatusBar />)
+
+    await user.click(screen.getByText('⚙'))
+
+    expect(screen.getByText('设置')).toBeDefined()
   })
 
   it('shows nothing when state is null', () => {

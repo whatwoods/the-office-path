@@ -1,8 +1,9 @@
 import { generateText, Output } from "ai";
 
-import { AGENT_MODELS, getModel } from "@/ai/provider";
+import { getModel, resolveAgentModel } from "@/ai/provider";
 import { WorldAgentOutputSchema } from "@/ai/schemas";
 import type { AgentInput, WorldAgentOutput } from "@/types/agents";
+import type { AIConfig } from "@/types/settings";
 
 function buildSystemPrompt(input: AgentInput): string {
   const phase = input.state.phase;
@@ -63,9 +64,10 @@ ${history ? `\n最近历史：\n${history}` : ""}
 
 export async function runWorldAgent(
   input: AgentInput,
+  aiConfig?: AIConfig,
 ): Promise<WorldAgentOutput> {
   const { output } = await generateText({
-    model: getModel(AGENT_MODELS.world),
+    model: getModel(resolveAgentModel("world", aiConfig), aiConfig?.apiKey),
     output: Output.object({ schema: WorldAgentOutputSchema }),
     system: buildSystemPrompt(input),
     prompt: buildUserPrompt(input),

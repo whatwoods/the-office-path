@@ -1,6 +1,6 @@
 import { generateText, Output } from "ai";
 
-import { AGENT_MODELS, getModel } from "@/ai/provider";
+import { getModel, resolveAgentModel } from "@/ai/provider";
 import { NPCAgentOutputSchema } from "@/ai/schemas";
 import type {
   AgentInput,
@@ -9,6 +9,7 @@ import type {
   WorldAgentOutput,
 } from "@/types/agents";
 import type { ActionAllocation } from "@/types/actions";
+import type { AIConfig } from "@/types/settings";
 
 function buildSystemPrompt(input: AgentInput): string {
   const phase = input.state.phase;
@@ -106,9 +107,10 @@ export async function runNPCAgent(
   eventContext: EventAgentOutput,
   playerActions: ActionAllocation[],
   playerContext?: string,
+  aiConfig?: AIConfig,
 ): Promise<NPCAgentOutput> {
   const { output } = await generateText({
-    model: getModel(AGENT_MODELS.npc),
+    model: getModel(resolveAgentModel("npc", aiConfig), aiConfig?.apiKey),
     output: Output.object({ schema: NPCAgentOutputSchema }),
     system: buildSystemPrompt(input),
     prompt: buildUserPrompt(
@@ -117,7 +119,7 @@ export async function runNPCAgent(
       eventContext,
       playerActions,
       playerContext,
-    ),
+    )
   });
 
   return output!;

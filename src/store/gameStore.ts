@@ -2,11 +2,13 @@ import { create } from 'zustand'
 import type { GameState, PhoneApp } from '@/types/game'
 import type { QuarterPlan, CriticalChoice } from '@/types/actions'
 import type { GameEvent } from '@/types/events'
+import type { AIConfig } from '@/types/settings'
 import {
   saveGame as storageSave,
   loadGame as storageLoad,
 } from '@/save/storage'
 import type { SaveSlot } from '@/save/storage'
+import { useSettingsStore } from '@/store/settingsStore'
 
 interface PromotionInfo {
   eligible: boolean
@@ -17,6 +19,11 @@ interface PromotionInfo {
 interface PerformanceInfo {
   rating: string
   salaryChange: number
+}
+
+function buildAIConfig(): { aiConfig: AIConfig } | {} {
+  const config = useSettingsStore.getState().getAIConfig()
+  return config ? { aiConfig: config } : {}
 }
 
 interface GameStore {
@@ -75,6 +82,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const res = await fetch('/api/game/new', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...buildAIConfig() }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -103,7 +111,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const res = await fetch('/api/game/turn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state, plan }),
+        body: JSON.stringify({ state, plan, ...buildAIConfig() }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -126,8 +134,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
             }
           : null,
       })
-      // Auto-save after quarter
-      storageSave(data.state, 'auto')
+      if (useSettingsStore.getState().settings.gameplay.autoSave) {
+        storageSave(data.state, 'auto')
+      }
       void get().refreshState()
     } catch {
       set({ error: '网络错误', isLoading: false })
@@ -142,7 +151,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const res = await fetch('/api/game/turn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state, choice }),
+        body: JSON.stringify({ state, choice, ...buildAIConfig() }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -170,7 +179,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const res = await fetch('/api/game/resign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state }),
+        body: JSON.stringify({ state, ...buildAIConfig() }),
       })
       const data = await res.json()
       if (!res.ok) {

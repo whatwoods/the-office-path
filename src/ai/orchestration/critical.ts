@@ -13,6 +13,7 @@ import type {
   WorldAgentOutput,
 } from "@/types/agents";
 import type { CriticalPeriodType, GameState, PhoneApp, PhoneMessage } from "@/types/game";
+import type { AIConfig } from "@/types/settings";
 
 export interface CriticalDayPipelineResult {
   state: GameState;
@@ -61,6 +62,7 @@ function createPhoneMessage(
 export async function runCriticalDayPipeline(
   state: GameState,
   choice: CriticalChoice,
+  aiConfig?: AIConfig,
 ): Promise<CriticalDayPipelineResult> {
   const engineResult = settleCriticalDay(state, choice);
   const settledState = engineResult.state;
@@ -89,6 +91,7 @@ export async function runCriticalDayPipeline(
     { events: [], phoneMessages: [] },
     [],
     playerContext,
+    aiConfig,
   );
   const npcOutput = validateNPCActions(rawNPCOutput, settledState.npcs);
 
@@ -99,7 +102,11 @@ export async function runCriticalDayPipeline(
     }
   }
 
-  const eventOutput: EventAgentOutput = await runEventAgent(agentInput, worldContext);
+  const eventOutput: EventAgentOutput = await runEventAgent(
+    agentInput,
+    worldContext,
+    aiConfig,
+  );
 
   for (const event of eventOutput.events) {
     if (event.statChanges) {
@@ -132,6 +139,7 @@ export async function runCriticalDayPipeline(
     true,
     playerContext,
     isCriticalStill,
+    aiConfig,
   );
 
   let nextChoices: CriticalChoice[] | undefined;
