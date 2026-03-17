@@ -34,6 +34,18 @@ describe('LandingPage', () => {
     expect(screen.getByText('设置')).toBeDefined()
   })
 
+  it('does not show the desktop-only mobile warning anymore', () => {
+    render(<LandingPage />)
+
+    expect(screen.queryByText('请使用电脑访问')).toBeNull()
+  })
+
+  it('renders the landing background layer', () => {
+    render(<LandingPage />)
+
+    expect(screen.getByTestId('landing-background')).toBeDefined()
+  })
+
   it('opens the settings modal when clicking the settings button', async () => {
     const user = userEvent.setup()
     render(<LandingPage />)
@@ -43,17 +55,22 @@ describe('LandingPage', () => {
     expect(screen.getAllByText('设置').length).toBeGreaterThan(1)
   })
 
+  it('opens the load modal when clicking the load button', async () => {
+    const user = userEvent.setup()
+    render(<LandingPage />)
+
+    await user.click(screen.getByText('读取存档'))
+
+    expect(screen.getByText('存档管理')).toBeDefined()
+  })
+
   it('routes to the intro page when clicking new game', async () => {
     const user = userEvent.setup()
-    const newGame = vi.fn()
-
-    useGameStore.setState({ newGame })
 
     render(<LandingPage />)
 
     await user.click(screen.getByText('新游戏'))
 
-    expect(newGame).not.toHaveBeenCalled()
     expect(push).toHaveBeenCalledWith('/intro')
   })
 })

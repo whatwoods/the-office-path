@@ -35,28 +35,20 @@ export default function GamePage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--pixel-bg)]">
-      {/* 小屏幕提示 */}
-      <div className="block min-[1024px]:hidden p-8 text-center text-[var(--pixel-text-amber)]">
-        请使用电脑访问
-      </div>
+      <TopStatusBar />
+      <ErrorBanner />
 
-      <div className="hidden min-[1024px]:flex min-h-screen flex-col">
-        <TopStatusBar />
-        <ErrorBanner />
-
-        {/* 主区域：故事区 70% + 仪表盘 30% */}
-        <div className="flex flex-1 overflow-hidden">
-          <div className="w-[70%] overflow-y-auto p-4">
-            <StoryPanel />
-          </div>
-          <div className="w-[30%] border-l-4 border-[var(--pixel-border)] overflow-y-auto">
-            <DashboardPanel />
-          </div>
+      {/* 主区域：移动端纵向堆叠，桌面端双栏 */}
+      <div className="flex flex-1 flex-col overflow-hidden min-[1024px]:flex-row">
+        <div className="min-h-[38vh] flex-1 overflow-y-auto p-3 min-[1024px]:w-[70%] min-[1024px]:p-4">
+          <StoryPanel />
         </div>
-
-        {/* 底部行动区 */}
-        <ActionBar />
+        <div className="border-t-4 border-[var(--pixel-border)] min-[1024px]:w-[30%] min-[1024px]:overflow-y-auto min-[1024px]:border-t-0 min-[1024px]:border-l-4">
+          <DashboardPanel />
+        </div>
       </div>
+
+      <ActionBar />
 
       {currentEvent && (
         <EventPopup
