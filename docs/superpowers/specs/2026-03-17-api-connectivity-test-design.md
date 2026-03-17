@@ -25,13 +25,27 @@ interface PingRequest {
 }
 ```
 
+**响应体：**
+
+```typescript
+interface PingResponse {
+  success: boolean
+  model?: string      // 实际测试的模型 spec
+  latencyMs?: number  // 成功时的延迟毫秒数
+  error?: string      // 失败时的错误描述
+}
+```
+
 **逻辑：**
 
-1. 解析并校验请求参数（provider、apiKey 必填）
+1. 解析并校验请求参数（provider、apiKey 必填；`provider === 'custom'` 时 baseUrl 也必填，缺失返回 400）
 2. 确定测试用模型：优先用 `model` 参数，否则取 `PROVIDER_CATALOG[provider].defaultModels.world`
-3. 构造 `ModelSpec`（`provider:modelId` 格式），调用 `getModel(spec, apiKey, baseUrl)` 创建模型实例
-4. 记录起始时间，调用 `generateText({ model, prompt: "hi", maxTokens: 1 })`
-5. 计算延迟
+3. baseUrl 归一化：对于非 custom provider，若 baseUrl 为空字符串，转为 `undefined` 传入 `getModel`（避免空字符串覆盖 catalog 中的 defaultBaseUrl）
+4. 构造 `ModelSpec`（`provider:modelId` 格式），调用 `getModel(spec, apiKey, baseUrl)` 创建模型实例
+5. 记录起始时间，调用 `generateText({ model, prompt: "hi", maxTokens: 1, abortSignal })` ，设置 10 秒超时
+6. 计算延迟
+
+**安全注意：** API Key 通过请求体从客户端传到同源 Next.js 后端，route handler 中不得将 API Key 写入日志或返回给客户端。
 
 **成功响应 (200)：**
 
@@ -42,7 +56,7 @@ interface PingRequest {
 **失败响应 (200)：**
 
 ```json
-{ "success": false, "error": "Invalid API key" }
+{ "success": false, "error": "API Key 无效，请检查后重试" }
 ```
 
 注意：业务错误仍返回 200 状态码，`success: false` 表示失败。仅在请求格式错误时返回 400。
@@ -61,14 +75,16 @@ interface UseApiPingReturn {
   status: PingStatus
   error: string | null
   latencyMs: number | null
+  model: string | null
 }
 ```
 
 **实现：**
 
-- 使用 `useState` 管理 `status`、`error`、`latencyMs`
+- 使用 `useState` 管理 `status`、`error`、`latencyMs`、`model`
 - `ping()` 从 `useSettingsStore` 读取当前 AI 配置，POST 到 `/api/ai/ping`
-- 调用前重置状态为 `testing`
+- 若 apiKey 为空，跳过 ping（用户可能依赖服务端环境变量，此时不做客户端检测）
+- 调用前重置状态为 `testing`；若已在 `testing` 状态则忽略重复调用（防抖）
 - 调用成功后根据 `response.success` 设置 `success` 或 `error`
 - fetch 本身失败（网络错误）也设置为 `error`
 
@@ -81,7 +97,7 @@ interface UseApiPingReturn {
 - **按钮状态：**
   - `idle`：显示「测试连接」
   - `testing`：显示「测试中...」，按钮禁用
-  - `success`：显示绿色文本「连接成功 (XXms)」
+  - `success`：显示绿色文本「连接成功: {model} ({latencyMs}ms)」
   - `error`：显示红色文本 + 错误信息
 
 - **触发条件：** API Key 非空时按钮可用
@@ -90,35 +106,37 @@ interface UseApiPingReturn {
 
 ### 4. 游戏开始前自动检测
 
-**修改位置：** 创建新游戏的调用处（游戏页面或 intro 流程中调用 `/api/game/new` 之前）
+**修改文件：** `src/app/intro/page.tsx` 的 `handleAcceptOffer` 函数
 
 **逻辑：**
 
-1. 在发起 `/api/game/new` 请求之前，先调用 `/api/ai/ping`
-2. 成功：继续创建游戏
-3. 失败：显示警告弹窗，内容为错误信息 + 两个按钮「仍然继续」和「去设置」
+1. 在 `handleAcceptOffer` 中，调用 `newGame()` 之前，先调用 `/api/ai/ping`
+2. 若 apiKey 为空（用户依赖服务端环境变量），跳过 ping 直接继续
+3. 成功：继续创建游戏
+4. 失败：显示警告弹窗，内容为错误信息 + 两个按钮「仍然继续」和「去设置」
    - 「仍然继续」：忽略警告，继续创建游戏
-   - 「去设置」：打开设置弹窗
+   - 「去设置」：打开设置弹窗（在 intro 页面中复用 `SettingsModal` 组件）
 
 ## 错误信息处理
 
-将常见的 AI SDK 错误映射为用户友好的中文提示：
+将常见的 AI SDK 错误映射为用户友好的中文提示。Vercel AI SDK 会将各 provider（包括 Anthropic）的错误归一化为标准异常，可通过 HTTP 状态码和错误消息进行匹配：
 
 | 原始错误 | 用户提示 |
 |----------|---------|
-| 401 / Invalid API key | API Key 无效，请检查后重试 |
-| 403 / Forbidden | API Key 无此模型的访问权限 |
-| 404 / Model not found | 模型不存在，请检查模型名称 |
-| 429 / Rate limit | 请求频率超限，请稍后重试 |
+| 401 / Invalid API key / authentication_error | API Key 无效，请检查后重试 |
+| 403 / Forbidden / permission_error | API Key 无此模型的访问权限 |
+| 404 / Model not found / not_found_error | 模型不存在，请检查模型名称 |
+| 429 / Rate limit / rate_limit_error | 请求频率超限，请稍后重试 |
 | Network error / ECONNREFUSED | 无法连接到 AI 服务，请检查网络 |
+| AbortError / timeout | 连接超时，请稍后重试 |
 | 其他 | 连接失败：{原始错误信息} |
 
 ## 测试计划
 
 ### 单元测试
 
-- `tests/app/api/ai/ping.test.ts`：测试 API route 的参数校验、成功/失败路径、默认模型回退逻辑
-- `tests/lib/useApiPing.test.ts`：测试 hook 状态流转（idle → testing → success/error）
+- `tests/app/api/ai/ping.test.ts`：测试 API route 的参数校验、成功/失败路径、默认模型回退逻辑、custom provider 的 baseUrl 校验、超时处理
+- `tests/lib/useApiPing.test.ts`：测试 hook 状态流转（idle → testing → success/error）、重复调用防抖、apiKey 为空时跳过
 
 ### 组件测试
 
@@ -131,6 +149,6 @@ interface UseApiPingReturn {
 | 新建 | `src/app/api/ai/ping/route.ts` |
 | 新建 | `src/lib/useApiPing.ts` |
 | 修改 | `src/components/game/SettingsModal.tsx` |
-| 修改 | 游戏创建流程相关组件（需确认具体位置） |
+| 修改 | `src/app/intro/page.tsx` |
 | 新建 | `tests/app/api/ai/ping.test.ts` |
 | 新建 | `tests/lib/useApiPing.test.ts` |
