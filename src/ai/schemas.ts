@@ -317,6 +317,7 @@ const QuarterSummarySchema = z.object({
 
 const GameStateSchema = z.object({
   version: z.string(),
+  playerName: z.string(),
   phase: z.union([z.literal(1), z.literal(2)]),
   currentQuarter: z.number(),
   timeMode: z.enum(["quarterly", "critical"]),

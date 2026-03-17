@@ -90,6 +90,28 @@ describe("useGameStore", () => {
     );
   });
 
+  it("newGame forwards intro params to the API", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          success: true,
+          state: createNewGame({ major: "finance", playerName: "小红" }),
+          narrative: "恭喜入职鼎信金融。",
+          criticalChoices: [],
+        }),
+    });
+
+    await useGameStore
+      .getState()
+      .newGame({ major: "finance", playerName: "小红" });
+
+    const callArgs = mockFetch.mock.calls[0];
+    const body = JSON.parse(callArgs[1].body);
+    expect(body.major).toBe("finance");
+    expect(body.playerName).toBe("小红");
+  });
+
   it("newGame includes aiConfig in request body when apiKey is set", async () => {
     useSettingsStore
       .getState()

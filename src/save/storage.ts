@@ -2,7 +2,7 @@ import type { GameState } from "@/types/game";
 import { migrate } from "@/save/migration";
 import type { JobOffer } from "@/types/job-offer";
 
-const CURRENT_VERSION = "1.1";
+const CURRENT_VERSION = "1.2";
 const STORAGE_PREFIX = "office_path_save_";
 
 export const SAVE_SLOTS = ["auto", "slot1", "slot2", "slot3"] as const;

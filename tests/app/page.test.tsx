@@ -43,15 +43,9 @@ describe('LandingPage', () => {
     expect(screen.getAllByText('设置').length).toBeGreaterThan(1)
   })
 
-  it('does not navigate to the game page when newGame fails', async () => {
+  it('routes to the intro page when clicking new game', async () => {
     const user = userEvent.setup()
-    const newGame = vi.fn(async () => {
-      useGameStore.setState({
-        state: null,
-        error: '创建失败',
-        isLoading: false,
-      })
-    })
+    const newGame = vi.fn()
 
     useGameStore.setState({ newGame })
 
@@ -59,7 +53,7 @@ describe('LandingPage', () => {
 
     await user.click(screen.getByText('新游戏'))
 
-    expect(newGame).toHaveBeenCalledTimes(1)
-    expect(push).not.toHaveBeenCalled()
+    expect(newGame).not.toHaveBeenCalled()
+    expect(push).toHaveBeenCalledWith('/intro')
   })
 })

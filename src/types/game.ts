@@ -3,6 +3,8 @@ import type { ExecutiveState, Phase2Path } from "./executive";
 import type { JobOffer, PastJob } from "./job-offer";
 import type { MaimaiPost } from "./maimai";
 
+export type MajorType = "tech" | "finance" | "liberal";
+
 export interface PlayerAttributes {
   health: number;
   professional: number;
@@ -173,6 +175,7 @@ export interface QuarterSummary {
 
 export interface GameState {
   version: string;
+  playerName: string;
   phase: GamePhase;
   currentQuarter: number;
   timeMode: TimeMode;

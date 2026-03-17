@@ -1,7 +1,42 @@
-import { INITIAL_ATTRIBUTES } from "@/engine/attributes";
-import type { GameState, NPC } from "@/types/game";
+import { INITIAL_ATTRIBUTES, applyStatChanges } from "@/engine/attributes";
+import type {
+  GameState,
+  MajorType,
+  NPC,
+  PlayerAttributes,
+} from "@/types/game";
 
-function createInitialNPCs(): NPC[] {
+export interface IntroParams {
+  major?: MajorType;
+  playerName?: string;
+}
+
+const MAJOR_CONFIG: Record<
+  MajorType,
+  {
+    company: string;
+    title: string;
+    attrBonus: Partial<PlayerAttributes>;
+  }
+> = {
+  tech: {
+    company: "星云科技",
+    title: "产品运营实习生",
+    attrBonus: { professional: 5, communication: -2 },
+  },
+  finance: {
+    company: "鼎信金融",
+    title: "客户经理助理实习生",
+    attrBonus: { communication: 5, professional: -2 },
+  },
+  liberal: {
+    company: "万合集团",
+    title: "行政管理实习生",
+    attrBonus: { network: 5, professional: -2 },
+  },
+};
+
+function createInitialNPCs(companyName: string): NPC[] {
   return [
     {
       id: "wang_jianguo",
@@ -12,7 +47,7 @@ function createInitialNPCs(): NPC[] {
       favor: 50,
       isActive: true,
       currentStatus: "在岗",
-      companyName: "星辰互联",
+      companyName,
     },
     {
       id: "zhang_wei",
@@ -23,7 +58,7 @@ function createInitialNPCs(): NPC[] {
       favor: 50,
       isActive: true,
       currentStatus: "在岗",
-      companyName: "星辰互联",
+      companyName,
     },
     {
       id: "li_xue",
@@ -34,7 +69,7 @@ function createInitialNPCs(): NPC[] {
       favor: 50,
       isActive: true,
       currentStatus: "在岗",
-      companyName: "星辰互联",
+      companyName,
     },
     {
       id: "zhao_zong",
@@ -45,7 +80,7 @@ function createInitialNPCs(): NPC[] {
       favor: 40,
       isActive: true,
       currentStatus: "在岗",
-      companyName: "星辰互联",
+      companyName,
     },
     {
       id: "xiao_mei",
@@ -56,14 +91,20 @@ function createInitialNPCs(): NPC[] {
       favor: 55,
       isActive: true,
       currentStatus: "在岗",
-      companyName: "星辰互联",
+      companyName,
     },
   ];
 }
 
-export function createNewGame(): GameState {
+export function createNewGame(params?: IntroParams): GameState {
+  const major = params?.major ?? "tech";
+  const playerName = params?.playerName ?? "新员工";
+  const config = MAJOR_CONFIG[major];
+  const player = applyStatChanges({ ...INITIAL_ATTRIBUTES }, config.attrBonus);
+
   return {
-    version: "1.1",
+    version: "1.2",
+    playerName,
     phase: 1,
     currentQuarter: 0,
     timeMode: "critical",
@@ -73,9 +114,9 @@ export function createNewGame(): GameState {
       maxDays: 5,
       staminaPerDay: 3,
     },
-    player: { ...INITIAL_ATTRIBUTES },
+    player,
     job: {
-      companyName: "星辰互联",
+      companyName: config.company,
       level: "L1",
       salary: 3000,
       careerPath: "undecided",
@@ -86,7 +127,7 @@ export function createNewGame(): GameState {
       type: "shared",
       hasMortgage: false,
     },
-    npcs: createInitialNPCs(),
+    npcs: createInitialNPCs(config.company),
     projectProgress: {
       completed: 0,
       majorCompleted: 0,

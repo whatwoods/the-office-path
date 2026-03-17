@@ -123,3 +123,20 @@ body {
 .quarter-transition {
   animation: fade-out 1.5s ease-in-out forwards;
 }
+
+/* 开场序列动画 */
+@keyframes phone-vibrate {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px) rotate(-1deg); }
+  75% { transform: translateX(3px) rotate(1deg); }
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes offer-fade-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}

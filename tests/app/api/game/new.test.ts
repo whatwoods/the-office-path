@@ -42,6 +42,35 @@ describe("POST /api/game/new", () => {
     expect(json.criticalChoices.length).toBe(1);
   });
 
+  it("creates the selected company and player name from intro params", async () => {
+    const req = new Request("http://localhost/api/game/new", {
+      method: "POST",
+      body: JSON.stringify({ major: "finance", playerName: "小红" }),
+    });
+
+    const res = await POST(req);
+    const json = await res.json();
+
+    expect(json.state.job.companyName).toBe("鼎信金融");
+    expect(json.state.playerName).toBe("小红");
+    expect(mockedRunNarrativeAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: expect.objectContaining({
+          playerName: "小红",
+          job: expect.objectContaining({ companyName: "鼎信金融" }),
+        }),
+      }),
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Array),
+      true,
+      "玩家入职了鼎信金融。",
+      true,
+      undefined,
+    );
+  });
+
   it("passes aiConfig to the narrative agent when provided", async () => {
     const aiConfig = {
       provider: "anthropic" as const,
@@ -50,7 +79,7 @@ describe("POST /api/game/new", () => {
     };
     const req = new Request("http://localhost/api/game/new", {
       method: "POST",
-      body: JSON.stringify({ aiConfig }),
+      body: JSON.stringify({ aiConfig, major: "tech", playerName: "小明" }),
     });
 
     await POST(req);
@@ -62,7 +91,7 @@ describe("POST /api/game/new", () => {
       expect.any(Object),
       expect.any(Array),
       true,
-      "玩家入职了新公司。",
+      "玩家入职了星云科技。",
       true,
       aiConfig,
     );

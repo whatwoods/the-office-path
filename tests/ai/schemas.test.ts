@@ -198,7 +198,8 @@ describe("NarrativeAgentOutputSchema", () => {
 
 describe("AgentInputSchema", () => {
   const validState = {
-    version: "1.0",
+    version: "1.2",
+    playerName: "新员工",
     phase: 1 as const,
     currentQuarter: 1,
     timeMode: "quarterly" as const,
