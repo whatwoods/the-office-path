@@ -86,7 +86,7 @@ export function ActionBar() {
   if (!state) return null
 
   return (
-    <div data-testid="action-bar" className="border-t-4 border-[var(--pixel-border)] bg-[var(--pixel-bg-light)] p-4">
+    <div data-testid="action-bar" className="border-t-4 border-[var(--pixel-border)] bg-[var(--pixel-bg-light)] p-3 sm:p-4">
       {showPhase2Choice && (
         <Phase2Choice
           onClose={() => setShowPhase2Choice(false)}
@@ -96,8 +96,8 @@ export function ActionBar() {
           }}
         />
       )}
-      <div className="flex items-center gap-4">
-        <div className="flex-1">
+      <div className="flex flex-col gap-4 min-[1024px]:flex-row min-[1024px]:items-center">
+        <div className="min-w-0 flex-1">
           {isCritical && state.criticalPeriod ? (
             <CriticalChoices
               choices={criticalChoices}
@@ -123,7 +123,7 @@ export function ActionBar() {
           )}
         </div>
 
-        <div className="flex shrink-0 flex-col items-center gap-2">
+        <div className="flex w-full shrink-0 flex-col items-stretch gap-2 min-[1024px]:w-auto min-[1024px]:items-center">
           {!isCritical && (
             <div className="flex items-center gap-2">
               <PixelProgressBar

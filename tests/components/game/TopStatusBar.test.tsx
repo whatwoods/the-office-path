@@ -22,6 +22,14 @@ describe('TopStatusBar', () => {
     expect(screen.getByText('打工之道')).toBeDefined()
   })
 
+  it('keeps save and settings controls in the responsive bar shell', () => {
+    render(<TopStatusBar />)
+
+    expect(screen.getByTestId('top-status-bar')).toBeDefined()
+    expect(screen.getByText('存档')).toBeDefined()
+    expect(screen.getByText('⚙')).toBeDefined()
+  })
+
   it('opens settings modal from the gear button', async () => {
     const user = userEvent.setup()
     render(<TopStatusBar />)
