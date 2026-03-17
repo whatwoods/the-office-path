@@ -14,7 +14,7 @@ const APP_LABELS: Record<PhoneApp, string> = {
   maimai: '麦麦',
   jinritiaotiao: '今日条条',
   zhifubei: '支付呗',
-  hrzhipin: 'HR直聘',
+  hrzhipin: 'BOSS真聘',
   baolema: '饱了吗',
   huajiazhaogang: '花甲找房',
   tiantian: '天天财富',

@@ -55,7 +55,7 @@ src/
         MaimaiApp.tsx           — 麦麦（论坛帖子）
         JinritiaotiaoApp.tsx    — 今日条条（新闻卡片）
         ZhifubeiApp.tsx         — 支付呗（收支流水）
-        HrzhipinApp.tsx         — HR直聘（职位卡片）
+        HrzhipinApp.tsx         — BOSS真聘（职位卡片）
         GenericMessageApp.tsx   — 通用消息流（饱了吗等5个App共用）
       ActionBar.tsx             — 行动区容器
       QuarterlyActions.tsx      — 季度行动卡片
@@ -2715,7 +2715,7 @@ const APP_CONFIG: { key: PhoneApp; label: string; icon: string; phase2Only?: boo
   { key: 'maimai', label: '麦麦', icon: '👥' },
   { key: 'jinritiaotiao', label: '今日条条', icon: '📰' },
   { key: 'zhifubei', label: '支付呗', icon: '💰' },
-  { key: 'hrzhipin', label: 'HR直聘', icon: '💼' },
+  { key: 'hrzhipin', label: 'BOSS真聘', icon: '💼' },
   { key: 'baolema', label: '饱了吗', icon: '🍔' },
   { key: 'huajiazhaogang', label: '花甲找房', icon: '🏠' },
   { key: 'tiantian', label: '天天财富', icon: '📈' },
@@ -2785,7 +2785,7 @@ const APP_LABELS: Record<PhoneApp, string> = {
   maimai: '麦麦',
   jinritiaotiao: '今日条条',
   zhifubei: '支付呗',
-  hrzhipin: 'HR直聘',
+  hrzhipin: 'BOSS真聘',
   baolema: '饱了吗',
   huajiazhaogang: '花甲找房',
   tiantian: '天天财富',

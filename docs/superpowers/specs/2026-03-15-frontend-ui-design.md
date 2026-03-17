@@ -207,14 +207,14 @@ narrativeQueue (Zustand)
 | 麦麦 (maimai) | `MaimaiApp` | 论坛帖子样式，匿名头像，"热度"标签 |
 | 今日条条 (jinritiaotiao) | `JinritiaotiaoApp` | 新闻卡片列表，标题 + 摘要 |
 | 支付呗 (zhifubei) | `ZhifubeiApp` | 收支流水列表，收入绿色/支出红色，底部余额 |
-| HR直聘 (hrzhipin) | `HrzhipinApp` | 职位卡片，公司名 + 薪资 + 标签 |
+| BOSS真聘 (hrzhipin) | `HrzhipinApp` | 职位卡片，公司名 + 薪资 + 标签 |
 | 饱了吗 (baolema) | `GenericMessageApp` | 通用消息流 |
 | 花甲找房 (huajiazhaogang) | `GenericMessageApp` | 通用消息流 |
 | 天天财富 (tiantian) | `GenericMessageApp` | 通用消息流 |
 | 叮叮 (dingding) | `GenericMessageApp` | Phase 2 专属，通用消息流 |
 | 画饼通 (huabingtong) | `GenericMessageApp` | Phase 2 专属，通用消息流 |
 
-核心 App（小信、麦麦、今日条条、支付呗、HR直聘）有独立样式组件，其余 5 个共用 `GenericMessageApp`。
+核心 App（小信、麦麦、今日条条、支付呗、BOSS真聘）有独立样式组件，其余 5 个共用 `GenericMessageApp`。
 
 ---
 
@@ -342,7 +342,7 @@ src/
         MaimaiApp.tsx           — 麦麦（论坛帖子）
         JinritiaotiaoApp.tsx    — 今日条条（新闻卡片）
         ZhifubeiApp.tsx         — 支付呗（收支流水）
-        HrzhipinApp.tsx         — HR直聘（职位卡片）
+        HrzhipinApp.tsx         — BOSS真聘（职位卡片）
         GenericMessageApp.tsx   — 通用消息流（饱了吗等5个App共用）
       ActionBar.tsx             — 行动区容器
       QuarterlyActions.tsx      — 季度行动卡片

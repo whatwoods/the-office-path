@@ -8,7 +8,7 @@ const APP_CONFIG: { key: PhoneApp; label: string; icon: string; phase2Only?: boo
   { key: 'maimai', label: '麦麦', icon: '👥' },
   { key: 'jinritiaotiao', label: '今日条条', icon: '📰' },
   { key: 'zhifubei', label: '支付呗', icon: '💰' },
-  { key: 'hrzhipin', label: 'HR直聘', icon: '💼' },
+  { key: 'hrzhipin', label: 'BOSS真聘', icon: '💼' },
   { key: 'baolema', label: '饱了吗', icon: '🍔' },
   { key: 'huajiazhaogang', label: '花甲找房', icon: '🏠' },
   { key: 'tiantian', label: '天天财富', icon: '📈' },
