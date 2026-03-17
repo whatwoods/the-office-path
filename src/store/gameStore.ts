@@ -1,7 +1,15 @@
 import { create } from 'zustand'
 import type { GameState, PhoneApp } from '@/types/game'
 import type { QuarterPlan, CriticalChoice } from '@/types/actions'
+import type { ExecutiveQuarterPlan, Phase2Path } from '@/types/executive'
 import type { GameEvent } from '@/types/events'
+import { executeJobHop } from '@/engine/job-hop'
+import {
+  addPlayerComment,
+  addPlayerLike,
+  canPostMaimai,
+  createPlayerPost,
+} from '@/engine/maimai'
 import {
   saveGame as storageSave,
   loadGame as storageLoad,
@@ -38,9 +46,14 @@ interface GameStore {
 
   // Actions
   newGame: () => Promise<void>
-  submitQuarter: (plan: QuarterPlan) => Promise<void>
+  submitQuarter: (plan: QuarterPlan | ExecutiveQuarterPlan) => Promise<void>
   submitChoice: (choice: CriticalChoice) => Promise<void>
-  resignStartup: () => Promise<void>
+  resignStartup: (path?: Phase2Path) => Promise<void>
+  postOnMaimai: (content: string) => void
+  likePost: (postId: string) => void
+  commentOnPost: (postId: string, content: string) => void
+  acceptOffer: (offerId: string) => Promise<void>
+  ignoreOffer: (offerId: string) => void
   refreshState: () => Promise<void>
   saveGame: (slot: string) => void
   loadGame: (slot: string) => void
@@ -95,7 +108,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
-  submitQuarter: async (plan: QuarterPlan) => {
+  submitQuarter: async (plan: QuarterPlan | ExecutiveQuarterPlan) => {
     const { state } = get()
     if (!state) return
     set({ isLoading: true, error: null })
@@ -162,7 +175,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
-  resignStartup: async () => {
+  resignStartup: async (path: Phase2Path = 'startup') => {
     const { state } = get()
     if (!state) return
     set({ isLoading: true, error: null })
@@ -170,7 +183,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const res = await fetch('/api/game/resign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state }),
+        body: JSON.stringify({ state, path }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -189,6 +202,105 @@ export const useGameStore = create<GameStore>((set, get) => ({
     } catch {
       set({ error: '网络错误', isLoading: false })
     }
+  },
+
+  postOnMaimai: (content: string) => {
+    const { state } = get()
+    if (!state) return
+
+    const trimmed = content.trim()
+    if (!trimmed) return
+
+    const canPost = canPostMaimai(
+      state.maimaiPostsThisQuarter,
+      state.timeMode,
+      state.criticalPeriod?.type ?? null,
+    )
+    if (!canPost) {
+      set({ error: '当前阶段不能再发麦麦了' })
+      return
+    }
+
+    const newPost = createPlayerPost(trimmed, state.currentQuarter)
+    set({
+      state: {
+        ...state,
+        maimaiPosts: [newPost, ...state.maimaiPosts],
+        maimaiPostsThisQuarter: state.maimaiPostsThisQuarter + 1,
+      },
+      error: null,
+    })
+  },
+
+  likePost: (postId: string) => {
+    const { state } = get()
+    if (!state) return
+
+    set({
+      state: {
+        ...state,
+        maimaiPosts: state.maimaiPosts.map((post) =>
+          post.id === postId ? addPlayerLike(post) : post,
+        ),
+      },
+    })
+  },
+
+  commentOnPost: (postId: string, content: string) => {
+    const { state } = get()
+    if (!state) return
+
+    const trimmed = content.trim()
+    if (!trimmed) return
+
+    set({
+      state: {
+        ...state,
+        maimaiPosts: state.maimaiPosts.map((post) =>
+          post.id === postId ? addPlayerComment(post, trimmed) : post,
+        ),
+      },
+    })
+  },
+
+  acceptOffer: async (offerId: string) => {
+    const { state } = get()
+    if (!state) return
+
+    const offer = state.jobOffers.find((candidate) => candidate.id === offerId)
+    if (!offer) {
+      set({ error: 'Offer 不存在' })
+      return
+    }
+
+    set({ isLoading: true, error: null })
+    try {
+      const nextState = executeJobHop(state, offer)
+      set({
+        state: nextState,
+        isLoading: false,
+        narrativeQueue: [`你接受了 ${offer.companyName} 的 offer，开始新的入职适应期。`],
+        criticalChoices: [],
+        currentEvent: null,
+        showQuarterTransition: true,
+        lastPerformance: null,
+      })
+      storageSave(nextState, 'auto')
+    } catch {
+      set({ error: '接受 offer 失败', isLoading: false })
+    }
+  },
+
+  ignoreOffer: (offerId: string) => {
+    const { state } = get()
+    if (!state) return
+
+    set({
+      state: {
+        ...state,
+        jobOffers: state.jobOffers.filter((offer) => offer.id !== offerId),
+      },
+    })
   },
 
   refreshState: async () => {

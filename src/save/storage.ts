@@ -1,7 +1,8 @@
 import type { GameState } from "@/types/game";
 import { migrate } from "@/save/migration";
+import type { JobOffer } from "@/types/job-offer";
 
-const CURRENT_VERSION = "1.0";
+const CURRENT_VERSION = "1.1";
 const STORAGE_PREFIX = "office_path_save_";
 
 export const SAVE_SLOTS = ["auto", "slot1", "slot2", "slot3"] as const;
@@ -32,13 +33,23 @@ export function loadGame(slot: SaveSlot): GameState | null {
 
   try {
     const payload = JSON.parse(raw) as { state: GameState };
-    const state = payload.state;
+    let state: GameState | null = payload.state;
     if (state.version !== CURRENT_VERSION) {
       const migrated = migrate(
         state as unknown as Record<string, unknown>,
         CURRENT_VERSION,
       );
-      return migrated as GameState | null;
+      state = migrated as GameState | null;
+    }
+
+    if (!state) {
+      return null;
+    }
+
+    if (state.jobOffers) {
+      state.jobOffers = state.jobOffers.filter(
+        (offer: JobOffer) => offer.expiresAtQuarter >= state.currentQuarter,
+      );
     }
 
     return state;

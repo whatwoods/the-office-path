@@ -3,10 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   validateChoices,
   validateEventNPCConsistency,
+  validateExecutiveEvents,
   validateEvents,
   validateNPCActions,
 } from "@/ai/orchestration/conflict";
-import type { NPCAgentOutput, WorldAgentOutput } from "@/types/agents";
+import type { EventAgentOutput, NPCAgentOutput, WorldAgentOutput } from "@/types/agents";
 import type { CriticalChoice } from "@/types/actions";
 import type { GameEvent } from "@/types/events";
 import type { CriticalPeriodType, NPC } from "@/types/game";
@@ -90,6 +91,7 @@ describe("validateEventNPCConsistency", () => {
       favor: 50,
       isActive: true,
       currentStatus: "在岗",
+      companyName: "星辰互联",
     },
     {
       id: "zhang",
@@ -100,6 +102,7 @@ describe("validateEventNPCConsistency", () => {
       favor: 50,
       isActive: true,
       currentStatus: "在岗",
+      companyName: "星辰互联",
     },
   ];
 
@@ -189,6 +192,7 @@ describe("validateNPCActions", () => {
       favor: 50,
       isActive: true,
       currentStatus: "在岗",
+      companyName: "星辰互联",
     },
     {
       id: "zhang",
@@ -199,6 +203,7 @@ describe("validateNPCActions", () => {
       favor: 50,
       isActive: true,
       currentStatus: "在岗",
+      companyName: "星辰互联",
     },
   ];
 
@@ -346,5 +351,78 @@ describe("validateChoices", () => {
     expect(result.length).toBeGreaterThanOrEqual(1);
     expect(result[0].staminaCost).toBeLessThanOrEqual(1);
     expect(result[0].effects.statChanges?.professional).toBe(85);
+  });
+});
+
+describe("validateExecutiveEvents", () => {
+  const npcs: NPC[] = [
+    {
+      id: "leader",
+      name: "周总",
+      role: "直属领导",
+      personality: "强势",
+      hiddenGoal: "",
+      favor: 50,
+      isActive: true,
+      currentStatus: "在岗",
+      companyName: "星辰互联",
+    },
+  ];
+
+  it("filters executive events that mention non-existent positions", () => {
+    const output: EventAgentOutput = {
+      events: [
+        {
+          type: "workplace",
+          title: "CFO公开质疑你的预算",
+          description: "财务负责人在会上点名你",
+          severity: "high",
+          triggersCritical: false,
+        },
+        {
+          type: "workplace",
+          title: "董事会要求你补充材料",
+          description: "下周参加董事会汇报",
+          severity: "medium",
+          triggersCritical: false,
+        },
+      ],
+      phoneMessages: [],
+    };
+
+    const result = validateExecutiveEvents(output, npcs);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].title).toContain("董事会");
+  });
+
+  it("caps MaiMai consequence severity based on viral level", () => {
+    const output: EventAgentOutput = {
+      events: [],
+      phoneMessages: [],
+      maimaiResults: {
+        postResults: [
+          {
+            postId: "post-1",
+            aiAnalysis: "几乎没人关注",
+            viralLevel: "ignored",
+            consequences: {
+              playerEffects: { reputation: 10 },
+              npcReactions: [{ npcName: "周总", favorChange: -10 }],
+              identityExposed: false,
+              exposedTo: [],
+            },
+            generatedReplies: [],
+          },
+        ],
+        interactionResults: [],
+      },
+    };
+
+    const result = validateExecutiveEvents(output, npcs);
+    const postResult = result.maimaiResults?.postResults[0];
+
+    expect(postResult?.consequences.playerEffects?.reputation).toBe(2);
+    expect(postResult?.consequences.npcReactions?.[0].favorChange).toBe(-2);
   });
 });

@@ -18,7 +18,15 @@ export interface QuarterResult {
 }
 
 export function settleQuarter(state: GameState, plan: QuarterPlan): QuarterResult {
-  const maxStamina = getMaxStamina("quarterly", state.housing.type);
+  if (state.phase2Path === "executive") {
+    throw new Error("Use settleExecutiveQuarter for executive path");
+  }
+
+  const maxStamina = getMaxStamina(
+    "quarterly",
+    state.housing.type,
+    state.phase2Path,
+  );
   const validation = validateQuarterPlan(plan, maxStamina);
   if (!validation.valid) {
     throw new Error(validation.error ?? "Invalid plan: exceeds stamina budget");
@@ -107,7 +115,12 @@ export function settleQuarter(state: GameState, plan: QuarterPlan): QuarterResul
     newState.performanceWindow.quartersInWindow = 0;
   }
 
-  newState.staminaRemaining = getMaxStamina("quarterly", newState.housing.type);
+  newState.staminaRemaining = getMaxStamina(
+    "quarterly",
+    newState.housing.type,
+    newState.phase2Path,
+  );
+  newState.maimaiPostsThisQuarter = 0;
 
   return { state: newState, performanceRating, salaryChange };
 }

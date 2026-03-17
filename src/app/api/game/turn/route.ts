@@ -1,7 +1,11 @@
 import { AgentInputSchema } from "@/ai/schemas";
 import { runCriticalDayPipeline } from "@/ai/orchestration/critical";
-import { runQuarterlyPipeline } from "@/ai/orchestration/quarterly";
+import {
+  runExecutiveQuarterlyPipeline,
+  runQuarterlyPipeline,
+} from "@/ai/orchestration/quarterly";
 import type { CriticalChoice, QuarterPlan } from "@/types/actions";
+import type { ExecutiveQuarterPlan } from "@/types/executive";
 import type { GameState } from "@/types/game";
 
 export async function POST(request: Request) {
@@ -57,7 +61,23 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await runQuarterlyPipeline(state, body.plan);
+    if (state.phase2Path === "executive") {
+      const result = await runExecutiveQuarterlyPipeline(
+        state,
+        body.plan as ExecutiveQuarterPlan,
+      );
+      return Response.json({
+        success: true,
+        state: result.state,
+        narrative: result.narrative,
+        events: result.events,
+        performanceRating: result.performanceRating ?? null,
+        salaryChange: result.salaryChange ?? null,
+        criticalChoices: result.criticalChoices ?? [],
+      });
+    }
+
+    const result = await runQuarterlyPipeline(state, body.plan as QuarterPlan);
     return Response.json({
       success: true,
       state: result.state,

@@ -2,16 +2,20 @@ import { describe, expect, it, beforeEach, vi, type Mock } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QuarterlyActions } from '@/components/game/QuarterlyActions'
-import type { ActionAllocation } from '@/types/actions'
+
+type PlannerAllocation = {
+  action: string
+  target?: string
+}
 
 describe('QuarterlyActions', () => {
-  let allocations: ActionAllocation[]
-  let onAllocate: Mock<(allocation: ActionAllocation) => void>
+  let allocations: PlannerAllocation[]
+  let onAllocate: Mock<(allocation: PlannerAllocation) => void>
   let onDeallocate: Mock<(index: number) => void>
 
   beforeEach(() => {
     allocations = []
-    onAllocate = vi.fn<(allocation: ActionAllocation) => void>()
+    onAllocate = vi.fn<(allocation: PlannerAllocation) => void>()
     onDeallocate = vi.fn<(index: number) => void>()
   })
 
@@ -19,6 +23,7 @@ describe('QuarterlyActions', () => {
     render(
       <QuarterlyActions
         phase={1}
+        phase2Path={null}
         level="L3"
         allocations={allocations}
         staminaUsed={0}
@@ -37,6 +42,7 @@ describe('QuarterlyActions', () => {
     const { rerender } = render(
       <QuarterlyActions
         phase={1}
+        phase2Path={null}
         level="L3"
         allocations={allocations}
         staminaUsed={0}
@@ -51,6 +57,7 @@ describe('QuarterlyActions', () => {
     rerender(
       <QuarterlyActions
         phase={1}
+        phase2Path={null}
         level="L6_tech"
         allocations={allocations}
         staminaUsed={0}
@@ -68,6 +75,7 @@ describe('QuarterlyActions', () => {
     render(
       <QuarterlyActions
         phase={1}
+        phase2Path={null}
         level="L3"
         allocations={allocations}
         staminaUsed={0}
@@ -86,6 +94,7 @@ describe('QuarterlyActions', () => {
     render(
       <QuarterlyActions
         phase={1}
+        phase2Path={null}
         level="L3"
         allocations={allocations}
         staminaUsed={10}
@@ -103,6 +112,7 @@ describe('QuarterlyActions', () => {
     render(
       <QuarterlyActions
         phase={2}
+        phase2Path="startup"
         level="L6_tech"
         allocations={allocations}
         staminaUsed={0}
@@ -114,5 +124,24 @@ describe('QuarterlyActions', () => {
     )
     expect(screen.getByText('打磨产品')).toBeDefined()
     expect(screen.getByText('团队管理')).toBeDefined()
+  })
+
+  it('renders executive action cards for the executive path', () => {
+    render(
+      <QuarterlyActions
+        phase={2}
+        phase2Path="executive"
+        level="L8"
+        allocations={allocations}
+        staminaUsed={0}
+        staminaMax={10}
+        npcs={[]}
+        onAllocate={onAllocate}
+        onDeallocate={onDeallocate}
+      />,
+    )
+    expect(screen.getByText('推进业务')).toBeDefined()
+    expect(screen.getByText('经营董事会')).toBeDefined()
+    expect(screen.queryByText('打磨产品')).toBeNull()
   })
 })

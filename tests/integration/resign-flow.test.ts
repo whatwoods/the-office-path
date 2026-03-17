@@ -70,4 +70,22 @@ describe('resign integration flow', () => {
     expect(store.criticalChoices).toHaveLength(1)
     expect(store.showQuarterTransition).toBe(true)
   })
+
+  it('transitions an L8 player into the executive path', async () => {
+    const state = createNewGame()
+    state.timeMode = 'quarterly'
+    state.criticalPeriod = null
+    state.job.level = 'L8'
+    useGameStore.setState({ state })
+
+    await useGameStore.getState().resignStartup('executive')
+
+    const store = useGameStore.getState()
+    expect(store.state?.phase).toBe(2)
+    expect(store.state?.phase2Path).toBe('executive')
+    expect(store.state?.executive?.stage).toBe('E1')
+    expect(store.state?.company).toBeNull()
+    expect(store.state?.criticalPeriod?.type).toBe('executive_onboarding')
+    expect(store.showQuarterTransition).toBe(true)
+  })
 })

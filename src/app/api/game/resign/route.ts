@@ -3,11 +3,15 @@ import { runNarrativeAgent } from "@/ai/agents/narrative";
 import { validateChoices } from "@/ai/orchestration/conflict";
 import { canStartup, transitionToPhase2 } from "@/engine/phase-transition";
 import type { AgentInput } from "@/types/agents";
+import type { Phase2Path } from "@/types/executive";
 import type { CriticalPeriodType, GameState } from "@/types/game";
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { state?: GameState };
+    const body = (await request.json()) as {
+      state?: GameState;
+      path?: Phase2Path;
+    };
 
     if (!body.state) {
       return Response.json({ success: false, error: "Missing state" }, { status: 400 });
@@ -30,7 +34,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const newState = transitionToPhase2(currentState);
+    const newState = transitionToPhase2(currentState, body.path ?? "startup");
     
     const agentInput: AgentInput = { state: newState, recentHistory: [] };
     const worldContext = {

@@ -1,5 +1,6 @@
 import { clampAttribute } from "@/engine/attributes";
 import type { CompanyState } from "@/types/company";
+import type { ExecutiveState, Phase2Path } from "@/types/executive";
 import type { GameState, JobLevel } from "@/types/game";
 
 const STARTUP_ELIGIBLE_LEVELS: JobLevel[] = [
@@ -31,18 +32,64 @@ function createInitialCompany(): CompanyState {
   };
 }
 
+function createInitialExecutive(): ExecutiveState {
+  return {
+    stage: "E1",
+    departmentPerformance: 50,
+    boardSupport: 40,
+    teamLoyalty: 60,
+    politicalCapital: 20,
+    stockPrice: 100,
+    departmentCount: 1,
+    consecutiveLowPerformance: 0,
+    vestedShares: 0,
+    onTargetQuarters: 0,
+  };
+}
+
 export function canStartup(level: JobLevel): boolean {
   return STARTUP_ELIGIBLE_LEVELS.includes(level);
 }
 
-export function transitionToPhase2(state: GameState): GameState {
-  const isExecutivePath = state.job.level === "L8";
-  const moneyBonus = isExecutivePath ? 500000 : 0;
-  const networkBonus = isExecutivePath ? 20 : 0;
+export function transitionToPhase2(
+  state: GameState,
+  path: Phase2Path = "startup",
+): GameState {
+  const isL8 = state.job.level === "L8";
+  const moneyBonus = isL8 ? 500000 : 0;
+  const networkBonus = isL8 ? 20 : 0;
 
-  return {
+  const baseState: GameState = {
     ...state,
     phase: 2,
+    phase2Path: path,
+    jobOffers: [],
+    player: {
+      ...state.player,
+      money: state.player.money + moneyBonus,
+      network: clampAttribute("network", state.player.network + networkBonus),
+    },
+  };
+
+  if (path === "executive") {
+    return {
+      ...baseState,
+      timeMode: "critical",
+      criticalPeriod: {
+        type: "executive_onboarding",
+        currentDay: 1,
+        maxDays: 3,
+        staminaPerDay: 3,
+      },
+      staminaRemaining: 3,
+      executive: createInitialExecutive(),
+      company: null,
+      founderSalary: null,
+    };
+  }
+
+  return {
+    ...baseState,
     timeMode: "critical",
     criticalPeriod: {
       type: "startup_launch",
@@ -51,15 +98,11 @@ export function transitionToPhase2(state: GameState): GameState {
       staminaPerDay: 3,
     },
     staminaRemaining: 3,
-    player: {
-      ...state.player,
-      money: state.player.money + moneyBonus,
-      network: clampAttribute("network", state.player.network + networkBonus),
-    },
     company: createInitialCompany(),
+    executive: null,
     founderSalary: 5000,
     job: {
-      ...state.job,
+      ...baseState.job,
       companyName: "我的公司",
     },
   };

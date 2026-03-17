@@ -1,7 +1,30 @@
 type MigrationFn = (data: Record<string, unknown>) => Record<string, unknown>;
 
-const MIGRATIONS: Record<string, MigrationFn> = {};
-const VERSION_CHAIN = ["1.0"];
+const MIGRATIONS: Record<string, MigrationFn> = {
+  "1.0→1.1": (data) => {
+    const job = data.job as Record<string, unknown> | undefined;
+    const companyName = (job?.companyName as string) ?? "星辰互联";
+    const npcs = ((data.npcs as Array<Record<string, unknown>> | undefined) ?? []).map(
+      (npc) => ({
+        ...npc,
+        companyName: (npc.companyName as string | undefined) ?? companyName,
+      }),
+    );
+
+    return {
+      ...data,
+      version: "1.1",
+      phase2Path: null,
+      executive: null,
+      maimaiPosts: [],
+      maimaiPostsThisQuarter: 0,
+      jobOffers: [],
+      jobHistory: [],
+      npcs,
+    };
+  },
+};
+const VERSION_CHAIN = ["1.0", "1.1"];
 
 export function migrate(
   data: Record<string, unknown>,

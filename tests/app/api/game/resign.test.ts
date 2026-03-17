@@ -56,4 +56,23 @@ describe("POST /api/game/resign", () => {
     expect(json.success).toBe(false);
     expect(json.error).toBe("等级不足以创业");
   });
+
+  it("supports the executive path when requested", async () => {
+    const state = createNewGame();
+    state.job.level = "L8";
+
+    const req = new Request("http://localhost/api/game/resign", {
+      method: "POST",
+      body: JSON.stringify({ state, path: "executive" }),
+    });
+
+    const res = await POST(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(json.state.phase2Path).toBe("executive");
+    expect(json.state.executive?.stage).toBe("E1");
+    expect(json.state.criticalPeriod?.type).toBe("executive_onboarding");
+  });
 });

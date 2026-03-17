@@ -20,6 +20,7 @@ import { runWorldAgent } from "@/ai/agents/world";
 import { runQuarterlyPipeline } from "@/ai/orchestration/quarterly";
 import { createNewGame } from "@/engine/state";
 import type { QuarterPlan } from "@/types/actions";
+import type { ExecutiveQuarterPlan } from "@/types/executive";
 import type { GameState } from "@/types/game";
 
 const mockedWorld = vi.mocked(runWorldAgent);
@@ -149,5 +150,87 @@ describe("runQuarterlyPipeline", () => {
     const result = await runQuarterlyPipeline(state, plan);
 
     expect(result.state.currentQuarter).toBeGreaterThan(state.currentQuarter);
+  });
+
+  it("processes MaiMai consequences returned by the event agent", async () => {
+    const state = makeQuarterlyState();
+    state.maimaiPosts = [
+      {
+        id: "post-1",
+        quarter: 1,
+        author: "player",
+        content: "这家公司管理真有问题",
+        likes: 0,
+        playerLiked: false,
+        comments: [],
+      },
+    ];
+    state.player.reputation = 10;
+    mockedNPC.mockResolvedValueOnce({
+      npcActions: [],
+      chatMessages: [],
+    });
+
+    mockedEvent.mockResolvedValueOnce({
+      events: [],
+      phoneMessages: [],
+      maimaiResults: {
+        postResults: [
+          {
+            postId: "post-1",
+            aiAnalysis: "匿名吐槽在圈内小范围发酵",
+            viralLevel: "small_buzz",
+            consequences: {
+              playerEffects: { reputation: 5 },
+              npcReactions: [{ npcName: "王建国", favorChange: -5 }],
+              identityExposed: true,
+              exposedTo: ["王建国"],
+            },
+            generatedReplies: [{ sender: "匿名用户A", content: "确实离谱" }],
+          },
+        ],
+        interactionResults: [],
+      },
+    });
+
+    const result = await runQuarterlyPipeline(state, plan);
+    const post = result.state.maimaiPosts.find((entry) => entry.id === "post-1");
+    const leader = result.state.npcs.find((npc) => npc.name === "王建国");
+
+    expect(post?.viralLevel).toBe("small_buzz");
+    expect(post?.identityExposed).toBe(true);
+    expect(post?.comments.some((comment) => comment.content === "确实离谱")).toBe(true);
+    expect(result.state.player.reputation).toBeGreaterThan(state.player.reputation);
+    expect(leader?.favor).toBeLessThan(50);
+  });
+
+  it("routes executive states through the executive quarterly engine", async () => {
+    const state = makeQuarterlyState();
+    state.phase = 2;
+    state.phase2Path = "executive";
+    state.executive = {
+      stage: "E1",
+      departmentPerformance: 50,
+      boardSupport: 40,
+      teamLoyalty: 60,
+      politicalCapital: 20,
+      stockPrice: 100,
+      departmentCount: 1,
+      consecutiveLowPerformance: 0,
+      vestedShares: 0,
+      onTargetQuarters: 0,
+    };
+
+    const executivePlan: ExecutiveQuarterPlan = {
+      actions: [{ action: "push_business" }, { action: "rest" }],
+    };
+
+    const result = await runQuarterlyPipeline(
+      state,
+      executivePlan as unknown as QuarterPlan,
+    );
+
+    expect(result.state.currentQuarter).toBeGreaterThan(state.currentQuarter);
+    expect(result.state.executive?.departmentPerformance).toBeGreaterThan(50);
   });
 });

@@ -324,6 +324,153 @@ describe('useGameStore', () => {
     expect(useGameStore.getState().criticalChoices).toHaveLength(1)
   })
 
+  it('resignStartup passes the requested phase 2 path', async () => {
+    const mockState = {
+      ...createNewGame(),
+      timeMode: 'quarterly' as const,
+      criticalPeriod: null,
+      job: {
+        ...createNewGame().job,
+        level: 'L8' as const,
+      },
+    }
+    useGameStore.setState({ state: mockState })
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({
+        success: true,
+        state: {
+          ...mockState,
+          phase: 2,
+          phase2Path: 'executive',
+          executive: {
+            stage: 'E1',
+            departmentPerformance: 50,
+            boardSupport: 40,
+            teamLoyalty: 60,
+            politicalCapital: 20,
+            stockPrice: 100,
+            departmentCount: 1,
+            consecutiveLowPerformance: 0,
+            vestedShares: 0,
+            onTargetQuarters: 0,
+          },
+          timeMode: 'critical',
+          criticalPeriod: {
+            type: 'executive_onboarding',
+            currentDay: 1,
+            maxDays: 3,
+            staminaPerDay: 3,
+          },
+          staminaRemaining: 3,
+        },
+        narrative: '你决定留在权力中心。',
+        criticalChoices: [],
+      }),
+    })
+
+    await useGameStore.getState().resignStartup('executive')
+
+    expect(mockFetch).toHaveBeenCalledWith('/api/game/resign', expect.objectContaining({
+      method: 'POST',
+      body: expect.stringContaining('"path":"executive"'),
+    }))
+  })
+
+  it('postOnMaimai creates a new post and increments the quarterly counter', () => {
+    const state = createNewGame()
+    state.timeMode = 'quarterly'
+    state.criticalPeriod = null
+    state.currentQuarter = 2
+    useGameStore.setState({ state })
+
+    useGameStore.getState().postOnMaimai('今天的会离谱得像段子')
+
+    const nextState = useGameStore.getState().state
+    expect(nextState?.maimaiPosts).toHaveLength(1)
+    expect(nextState?.maimaiPosts[0].content).toBe('今天的会离谱得像段子')
+    expect(nextState?.maimaiPosts[0].author).toBe('player')
+    expect(nextState?.maimaiPostsThisQuarter).toBe(1)
+  })
+
+  it('likePost and commentOnPost update the selected MaiMai post', () => {
+    const state = createNewGame()
+    state.maimaiPosts = [
+      {
+        id: 'post-1',
+        quarter: 1,
+        author: 'anonymous',
+        content: '听说这周又要加班',
+        likes: 3,
+        playerLiked: false,
+        comments: [],
+      },
+    ]
+    useGameStore.setState({ state })
+
+    useGameStore.getState().likePost('post-1')
+    useGameStore.getState().commentOnPost('post-1', '这消息保真吗')
+
+    const post = useGameStore.getState().state?.maimaiPosts[0]
+    expect(post?.likes).toBe(4)
+    expect(post?.playerLiked).toBe(true)
+    expect(post?.comments).toHaveLength(1)
+    expect(post?.comments[0].content).toBe('这消息保真吗')
+  })
+
+  it('ignoreOffer removes a pending offer', () => {
+    const state = createNewGame()
+    state.jobOffers = [
+      {
+        id: 'offer-1',
+        companyName: '新公司',
+        companyProfile: '专注AI协作',
+        offeredLevel: 'L3',
+        offeredSalary: 18000,
+        companyStatus: 'stable',
+        expiresAtQuarter: 5,
+        negotiated: false,
+      },
+    ]
+    useGameStore.setState({ state })
+
+    useGameStore.getState().ignoreOffer('offer-1')
+
+    expect(useGameStore.getState().state?.jobOffers).toEqual([])
+  })
+
+  it('acceptOffer applies the job hop and enters onboarding', async () => {
+    const state = createNewGame()
+    state.timeMode = 'quarterly'
+    state.criticalPeriod = null
+    state.job.level = 'L3'
+    state.job.salary = 15000
+    state.job.companyName = '星辰互联'
+    state.jobOffers = [
+      {
+        id: 'offer-1',
+        companyName: '新公司',
+        companyProfile: '专注AI协作',
+        offeredLevel: 'L3',
+        offeredSalary: 18000,
+        companyStatus: 'stable',
+        expiresAtQuarter: 5,
+        negotiated: false,
+      },
+    ]
+    useGameStore.setState({ state })
+
+    await useGameStore.getState().acceptOffer('offer-1')
+
+    const nextState = useGameStore.getState().state
+    expect(nextState?.job.companyName).toBe('新公司')
+    expect(nextState?.job.salary).toBe(18000)
+    expect(nextState?.criticalPeriod?.type).toBe('new_company_onboarding')
+    expect(nextState?.jobOffers).toEqual([])
+    expect(useGameStore.getState().showQuarterTransition).toBe(true)
+  })
+
   it('saveGame and loadGame work with localStorage', () => {
     const mockState = createNewGame()
     useGameStore.setState({ state: mockState })

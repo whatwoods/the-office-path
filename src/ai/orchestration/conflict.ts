@@ -1,12 +1,24 @@
 import { CRITICAL_PERIOD_CATEGORIES } from "@/ai/schemas";
-import type { NPCAgentOutput, WorldAgentOutput } from "@/types/agents";
+import type {
+  EventAgentOutput,
+  NPCAgentOutput,
+  WorldAgentOutput,
+} from "@/types/agents";
 import type { CriticalChoice } from "@/types/actions";
 import type { GameEvent } from "@/types/events";
 import type { CriticalPeriodType, NPC, PlayerAttributes } from "@/types/game";
+import type { ViralLevel } from "@/types/maimai";
 
 const MAX_DISCARDS_PER_QUARTER = 2;
 const MAX_FAVOR_CHANGE_PER_ACTION = 20;
 const BOOM_INCOMPATIBLE_KEYWORDS = ["裁员", "倒闭", "破产", "大萧条", "寒冬"];
+const EXECUTIVE_POSITION_KEYWORDS = ["CEO", "CFO", "COO", "CTO", "董事长"];
+const VIRAL_LEVEL_EFFECT_CAP: Record<ViralLevel, number> = {
+  ignored: 2,
+  small_buzz: 5,
+  trending: 10,
+  viral: 20,
+};
 
 const PERSONALITY_CONTRADICTION_MAP: Record<string, string[]> = {
   和善: ["暴怒", "大骂", "破口大骂", "发飙", "暴打"],
@@ -106,6 +118,88 @@ export function validateNPCActions(
     ...npcOutput,
     npcActions,
     chatMessages,
+  };
+}
+
+function clampConsequencesByViralLevel(
+  effects: Partial<PlayerAttributes> | undefined,
+  maxMagnitude: number,
+): Partial<PlayerAttributes> | undefined {
+  if (!effects) {
+    return undefined;
+  }
+
+  return Object.fromEntries(
+    Object.entries(effects).map(([key, value]) => {
+      if (typeof value !== "number") {
+        return [key, value];
+      }
+
+      if (key === "money") {
+        return [key, value];
+      }
+
+      return [key, Math.max(-maxMagnitude, Math.min(maxMagnitude, value))];
+    }),
+  ) as Partial<PlayerAttributes>;
+}
+
+export function validateExecutiveEvents(
+  eventOutput: EventAgentOutput,
+  npcs: NPC[],
+): EventAgentOutput {
+  const knownExecutiveText = npcs
+    .filter((npc) => npc.isActive)
+    .map((npc) => `${npc.name}${npc.role}`)
+    .join(" ");
+
+  const events = eventOutput.events.filter((event) => {
+    const text = `${event.title}${event.description}`;
+
+    return EXECUTIVE_POSITION_KEYWORDS.every((keyword) => {
+      if (!text.includes(keyword)) {
+        return true;
+      }
+
+      if (keyword === "董事长" && text.includes("董事会")) {
+        return true;
+      }
+
+      return knownExecutiveText.includes(keyword);
+    });
+  });
+
+  const maimaiResults = eventOutput.maimaiResults
+    ? {
+        postResults: eventOutput.maimaiResults.postResults.map((result) => {
+          const maxMagnitude = VIRAL_LEVEL_EFFECT_CAP[result.viralLevel];
+
+          return {
+            ...result,
+            consequences: {
+              ...result.consequences,
+              playerEffects: clampConsequencesByViralLevel(
+                result.consequences.playerEffects,
+                maxMagnitude,
+              ),
+              npcReactions: result.consequences.npcReactions?.map((reaction) => ({
+                ...reaction,
+                favorChange: Math.max(
+                  -maxMagnitude,
+                  Math.min(maxMagnitude, reaction.favorChange),
+                ),
+              })),
+            },
+          };
+        }),
+        interactionResults: eventOutput.maimaiResults.interactionResults,
+      }
+    : undefined;
+
+  return {
+    ...eventOutput,
+    events,
+    maimaiResults,
   };
 }
 

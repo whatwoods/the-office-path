@@ -126,6 +126,7 @@ describe("NPCAgentOutputSchema", () => {
           favor: 50,
           isActive: true,
           currentStatus: "在岗",
+          companyName: "星辰互联",
         },
       ],
       departedNpcs: ["li_xue"],
@@ -238,6 +239,12 @@ describe("AgentInputSchema", () => {
     },
     staminaRemaining: 10,
     founderSalary: null,
+    phase2Path: null,
+    executive: null,
+    maimaiPosts: [],
+    maimaiPostsThisQuarter: 0,
+    jobOffers: [],
+    jobHistory: [],
   };
 
   it("validates a minimal agent input", () => {

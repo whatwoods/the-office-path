@@ -1,11 +1,16 @@
-import { describe, expect, it, vi } from "vitest";
-import { POST } from "@/app/api/game/turn/route";
-import { createNewGame } from "@/engine/state";
-import type { QuarterPlan } from "@/types/actions";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/ai/orchestration/quarterly", () => ({
   runQuarterlyPipeline: vi.fn().mockResolvedValue({
-    state: { timeMode: "critical", criticalPeriod: { type: "company_crisis", currentDay: 1, maxDays: 7, staminaPerDay: 3 } },
+    state: {
+      timeMode: "critical",
+      criticalPeriod: {
+        type: "company_crisis",
+        currentDay: 1,
+        maxDays: 7,
+        staminaPerDay: 3,
+      },
+    },
     narrative: "季度总结：遇到了公司危机",
     events: [],
     performanceRating: "A",
@@ -20,6 +25,22 @@ vi.mock("@/ai/orchestration/quarterly", () => ({
       },
     ],
   }),
+  runExecutiveQuarterlyPipeline: vi.fn().mockResolvedValue({
+    state: {
+      timeMode: "critical",
+      criticalPeriod: {
+        type: "board_review",
+        currentDay: 1,
+        maxDays: 3,
+        staminaPerDay: 3,
+      },
+      phase2Path: "executive",
+      executive: { stage: "E1", departmentPerformance: 60 },
+    },
+    narrative: "高管季度总结：你推进了业务，也被董事会盯上了",
+    events: [],
+    criticalChoices: [],
+  }),
 }));
 
 vi.mock("@/ai/orchestration/critical", () => ({
@@ -31,7 +52,23 @@ vi.mock("@/ai/orchestration/critical", () => ({
   }),
 }));
 
+import {
+  runExecutiveQuarterlyPipeline,
+  runQuarterlyPipeline,
+} from "@/ai/orchestration/quarterly";
+import { POST } from "@/app/api/game/turn/route";
+import { createNewGame } from "@/engine/state";
+import type { QuarterPlan } from "@/types/actions";
+import type { ExecutiveQuarterPlan } from "@/types/executive";
+
+const mockedQuarterly = vi.mocked(runQuarterlyPipeline);
+const mockedExecutiveQuarterly = vi.mocked(runExecutiveQuarterlyPipeline);
+
 describe("POST /api/game/turn", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("returns criticalChoices for quarterly mode when critical event triggers", async () => {
     const state = createNewGame();
     state.timeMode = "quarterly";
@@ -79,5 +116,43 @@ describe("POST /api/game/turn", () => {
     expect(json.success).toBe(true);
     expect(Array.isArray(json.nextChoices)).toBe(true);
     expect(json.npcActions).toBeUndefined();
+  });
+
+  it("routes executive quarterly plans to the executive pipeline", async () => {
+    const state = createNewGame();
+    state.timeMode = "quarterly";
+    state.criticalPeriod = null;
+    state.phase = 2;
+    state.phase2Path = "executive";
+    state.executive = {
+      stage: "E1",
+      departmentPerformance: 50,
+      boardSupport: 40,
+      teamLoyalty: 60,
+      politicalCapital: 20,
+      stockPrice: 100,
+      departmentCount: 1,
+      consecutiveLowPerformance: 0,
+      vestedShares: 0,
+      onTargetQuarters: 0,
+    };
+
+    const plan: ExecutiveQuarterPlan = {
+      actions: [{ action: "push_business" }, { action: "rest" }],
+    };
+
+    const req = new Request("http://localhost/api/game/turn", {
+      method: "POST",
+      body: JSON.stringify({ state, plan }),
+    });
+
+    const res = await POST(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(mockedExecutiveQuarterly).toHaveBeenCalledOnce();
+    expect(mockedQuarterly).not.toHaveBeenCalled();
+    expect(json.state.phase2Path).toBe("executive");
   });
 });

@@ -73,3 +73,21 @@ describe("CRITICAL_PERIOD_CONFIG", () => {
     expect(CRITICAL_PERIOD_CONFIG.ipo_review.maxDays).toBe(10);
   });
 });
+
+describe("executive critical periods", () => {
+  it("has config for all new critical period types", () => {
+    expect(CRITICAL_PERIOD_CONFIG.executive_onboarding).toEqual({ maxDays: 3 });
+    expect(CRITICAL_PERIOD_CONFIG.board_review).toEqual({ maxDays: 3 });
+    expect(CRITICAL_PERIOD_CONFIG.power_struggle).toEqual({ maxDays: 5 });
+    expect(CRITICAL_PERIOD_CONFIG.major_decision).toEqual({ maxDays: 5 });
+    expect(CRITICAL_PERIOD_CONFIG.power_transition).toEqual({ maxDays: 7 });
+    expect(CRITICAL_PERIOD_CONFIG.new_company_onboarding).toEqual({
+      maxDays: 3,
+    });
+  });
+
+  it("returns stamina 10 for executives regardless of housing", () => {
+    expect(getMaxStamina("quarterly", "slum", "executive")).toBe(10);
+    expect(getMaxStamina("quarterly", "shared", "executive")).toBe(10);
+  });
+});
