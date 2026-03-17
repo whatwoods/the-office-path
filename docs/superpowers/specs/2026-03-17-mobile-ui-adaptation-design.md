@@ -23,6 +23,10 @@ No tablet-specific breakpoint. Devices between 640-1024px get the mobile layout.
 
 ## Game Page (`/game`) — Mobile Layout
 
+### Current State
+
+The game page already has a responsive stacked layout on mobile (`flex-col` switching to `flex-row` at `min-[1024px]:`). On mobile, StoryPanel renders above DashboardPanel in a vertical scroll. This works but is not ideal — users must scroll past the full story to reach attributes/relationships/phone, and there's no clear navigation between sections. This spec replaces that stacked layout with a tabbed navigation.
+
 ### Layout Structure
 
 ```
@@ -49,10 +53,11 @@ No tablet-specific breakpoint. Devices between 640-1024px get the mobile layout.
 
 ### State Management
 
-Add `activeMobileTab` to Zustand store (or local state in GamePage):
+Add `activeMobileTab` as local state in `GamePage` (not in Zustand store):
 - Type: `'story' | 'attributes' | 'relationships' | 'phone'`
 - Default: `'story'`
 - Only used when viewport `<1024px`
+- Independent from the existing `activePanel` state in DashboardPanel (which controls the desktop sub-tab switcher). On mobile, `activeMobileTab` replaces `activePanel` — the desktop PanelTabs are hidden and the bottom tab bar drives navigation instead.
 
 ### TopStatusBar (Mobile)
 
@@ -63,13 +68,15 @@ New mobile behavior: single row `flex-row`:
 - Center: money display (e.g., "💰 ¥8,000")
 - Right: settings + save icon buttons
 - Game title "打工之道" hidden on mobile
+- Job level / company name hidden on mobile (visible in Attributes tab instead)
 
 ### ActionBar (Mobile)
 
-- Renders inside the Story tab content area, fixed above the tab bar
+- Renders inside the Story tab content area, **scrolls with story content** (not position-fixed). It sits at the bottom of the story scroll area, below the narrative text.
 - Action choice buttons: full-width, vertical stack (existing behavior)
-- Seasonal planning cards: horizontally scrollable single row instead of grid
+- Seasonal planning cards: horizontally scrollable single row (`overflow-x: auto; flex-wrap: nowrap`) instead of the current `flex-wrap` layout
 - Hidden when user switches to other tabs
+- Story content area has sufficient bottom padding (`pb-[56px]`) to ensure ActionBar content is not obscured by the tab bar
 
 ### DashboardPanel Decomposition
 
@@ -81,16 +88,17 @@ Desktop: No change. DashboardPanel continues to wrap all three sub-tabs with Pan
 
 ### Phone App (PhoneTab) — Mobile
 
-- App grid: keep 5-column layout (works on mobile)
+- App grid: keep 5-column layout (works on mobile; at 320px width each icon is ~50px, acceptable)
 - On app open: PhoneAppView replaces the entire content area (not a modal overlay)
 - Top navigation bar: `← AppName` back button to return to grid
 - App content fills available height between TopStatusBar and bottom tab bar
+- Bottom tab bar **remains visible** when an app is open. Tapping another tab closes the open app and switches to that tab.
 
 ## Landing Page (`/`) — Minor Touch-ups
 
 Current state is already responsive. Adjustments:
 
-- **Title sizing**: Add `text-3xl` for screens `<375px` (currently jumps from `text-4xl` to `text-5xl`)
+- **Title sizing**: Add `max-[374px]:text-3xl` for very narrow screens (currently `text-4xl sm:text-5xl lg:text-6xl`)
 - **Button spacing**: Tighten gap from `gap-3` on smallest screens
 - **Safe area**: Ensure content respects `safe-area-inset-bottom` for notched devices
 
@@ -109,9 +117,13 @@ Current state is mobile-first centered layout. Adjustments:
 
 ### Viewport Meta
 
-Ensure `layout.tsx` has:
-```html
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+Add viewport export to `layout.tsx` using Next.js convention:
+```ts
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+}
 ```
 
 ### Safe Area Insets
@@ -142,7 +154,10 @@ SaveModal and SettingsModal already have responsive sizing (`w-[calc(100vw-1.5re
 | `PhoneAppView` | Moderate | Full-content-area mode on mobile with back nav |
 | `LandingMenu` | Minor | Title size, spacing, safe area |
 | `LandingBackground` | None | Already responsive |
-| `IntroPage` + sub-components | Minor | Max-width, keyboard, safe area |
+| `NameInput` | Minor | Max-width constraint, keyboard scroll handling |
+| `MajorSelect` | Minor | Single-column card stack on narrow screens |
+| `OfferLetter` | Minor | Max-width constraint, scroll when keyboard open |
+| `BlackScreenText`, `GraduationNarrative`, `PhoneNotification` | None | Already simple centered text, no changes needed |
 | `layout.tsx` | Minor | Viewport meta update |
 
 ## New Components
