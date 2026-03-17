@@ -104,6 +104,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     return {
       provider: ai.provider,
       apiKey: ai.apiKey,
+      baseUrl: ai.baseUrl,
+      defaultModel: ai.defaultModel,
       modelOverrides: ai.modelOverrides,
     }
   },

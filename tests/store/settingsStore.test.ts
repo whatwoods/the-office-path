@@ -38,6 +38,23 @@ describe('useSettingsStore', () => {
     expect(stored.ai.provider).toBe('anthropic')
   })
 
+  it('persists baseUrl and defaultModel for custom providers', () => {
+    useSettingsStore.getState().updateAI({
+      provider: 'custom',
+      apiKey: 'sk-custom',
+      baseUrl: 'https://custom.provider',
+      defaultModel: 'custom-model',
+    })
+
+    const { settings } = useSettingsStore.getState()
+    expect(settings.ai.baseUrl).toBe('https://custom.provider')
+    expect(settings.ai.defaultModel).toBe('custom-model')
+
+    const stored = JSON.parse(storage.office_path_settings)
+    expect(stored.ai.baseUrl).toBe('https://custom.provider')
+    expect(stored.ai.defaultModel).toBe('custom-model')
+  })
+
   it('updateDisplay updates display settings and persists', () => {
     useSettingsStore
       .getState()
@@ -68,6 +85,24 @@ describe('useSettingsStore', () => {
     expect(settings.gameplay.autoSave).toBe(true)
   })
 
+  it('deep-merges new ai fields from localStorage', () => {
+    storage.office_path_settings = JSON.stringify({
+      ai: {
+        provider: 'custom',
+        apiKey: 'sk-custom',
+        baseUrl: 'https://custom.provider',
+        defaultModel: 'custom-model',
+        modelOverrides: {},
+      },
+    })
+
+    useSettingsStore.getState().loadSettings()
+
+    const { settings } = useSettingsStore.getState()
+    expect(settings.ai.baseUrl).toBe('https://custom.provider')
+    expect(settings.ai.defaultModel).toBe('custom-model')
+  })
+
   it('loadSettings falls back to defaults on corrupt JSON', () => {
     storage.office_path_settings = '{broken'
 
@@ -90,6 +125,26 @@ describe('useSettingsStore', () => {
     expect(config).toEqual({
       provider: 'anthropic',
       apiKey: 'sk-test',
+      baseUrl: '',
+      defaultModel: '',
+      modelOverrides: {},
+    })
+  })
+
+  it('getAIConfig returns baseUrl and defaultModel when set', () => {
+    useSettingsStore.getState().updateAI({
+      provider: 'custom',
+      apiKey: 'sk-custom',
+      baseUrl: 'https://custom.provider',
+      defaultModel: 'custom-model',
+    })
+
+    const config = useSettingsStore.getState().getAIConfig()
+    expect(config).toEqual({
+      provider: 'custom',
+      apiKey: 'sk-custom',
+      baseUrl: 'https://custom.provider',
+      defaultModel: 'custom-model',
       modelOverrides: {},
     })
   })
