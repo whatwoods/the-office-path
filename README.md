@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 打工之道 The Office Path
 
-## Getting Started
+> 一款 AI 驱动的职场人生模拟器。
+>
+> 你从入职第一天开始上班、赶项目、回消息、看匿名区风向、应付办公室政治，然后决定自己这辈子到底是升职、跳槽、创业，还是留在权力中心继续互相拿捏。
 
-First, run the development server:
+## 这是什么游戏
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+《打工之道》是一款偏文字叙事的职场模拟器。你会以应届生身份开局，在一家互联网公司里一路摸爬滚打。你的选择会影响能力、情绪、收入、人际关系和职业路径，而 AI 会根据这些状态，继续生成下一段属于你的职场故事。
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+它不是那种把剧情全写死的游戏。你每一局遇到的人、事、锅、机会、风向，都会不太一样。昨天你还在埋头写方案，明天可能就被卷进晋升答辩、项目冲刺、公司内斗，或者在麦麦匿名区看见一条让人后背发凉的爆料。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 好玩在哪
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- 不是点点数值就结束的打工游戏。你要在工作、关系、风险和收益之间反复权衡。
+- 关键节点会进入更细的情境选择，比如晋升答辩、项目冲刺、公司危机、高管上任，压迫感会明显上来。
+- 游戏里有一整套很有职场味的手机生态：小信、麦麦、HR直聘、今日条条等应用会不断给你送来情报、八卦、机会和麻烦。
+- 后期不只一条路。你可以继续卷到更高的位置，也可以转去创业，或者留在公司走高管路线。
+- 麦麦不只是摆设。你能自己发帖、点赞、评论，而匿名区的风向，很可能反过来影响你现实中的处境。
 
-## Learn More
+## 怎么开始玩
 
-To learn more about Next.js, take a look at the following resources:
+1. 打开游戏页面，建议直接使用电脑访问。
+2. 先进入“设置”。
+3. 选择你要使用的 AI 服务商。
+4. 填入你自己的 API Key。
+5. 想进阶一点的话，可以给 `world`、`event`、`npc`、`narrative` 四个模块单独指定模型；留空则使用默认配置。
+6. 回到首页，点击“新游戏”，开始你的第一天打工生活。
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 你需要准备什么
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- 一个可用的 API Key。目前支持 `OpenAI`、`Anthropic`、`DeepSeek`。
+- 稳定网络。剧情和事件会根据你的状态实时生成。
+- 一点心理准备。你的同事、上级、行业和命运，不一定会讲道理。
 
-## Deploy on Vercel
+## 游戏里能体验到什么
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- 季度行动规划：决定接下来几个月你主要怎么活。
+- 关键期抉择：在高压时刻按天推进，处理真正棘手的事。
+- 人际关系变化：同事会记住你的表现，也会对你的选择做出反应。
+- 手机消息系统：各种 App 会持续给你推送信息、工作机会和职场噪音。
+- 匿名区互动：你可以在麦麦围观，也可以亲自下场发帖带节奏。
+- 分线发展：后期可走创业路线或高管路线，体验完全不同的压力来源。
+- 存档体验：支持 `1` 个自动存档和 `3` 个手动存档，适合留分支、回看不同人生。
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 游玩提示
+
+- 第一次进入前，记得先填 API Key，不然很多内容无法正常生成。
+- “自动存档”默认开启，可以在“设置”里关闭。
+- 叙事速度和字体大小都能在“设置”里调整，如果你想慢慢读剧情，这两个选项会很有用。
+- 设置和存档保存在当前浏览器里。清缓存、换浏览器或换设备后，记录可能不会保留。
+- API Key 也会保存在当前浏览器中，公共电脑请谨慎使用。
+- 目前更适合桌面端游玩；小屏设备下不推荐体验。
+
+## 适合谁
+
+- 喜欢文字冒险、模拟经营、职场题材的人
+- 喜欢看 AI 把同一套规则玩出不同人生分支的人
+- 喜欢“我只是想安静上个班，怎么突然卷进办公室宫斗了”的玩家
+
+## 最后
+
+这不是一款会让你赢得很干净的游戏。
+
+它更像一段会长歪、会失控、偶尔又真实得过分的打工人生。
+
+祝你升职，也祝你别在麦麦上被扒出来。
