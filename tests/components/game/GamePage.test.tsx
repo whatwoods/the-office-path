@@ -120,4 +120,20 @@ describe('GamePage', () => {
 
     expect(useGameStore.getState().lastPerformance).toBeNull()
   })
+
+  it('does not show the desktop-only warning anymore', () => {
+    useGameStore.setState({
+      currentEvent: null,
+      showQuarterTransition: false,
+      lastPerformance: null,
+    })
+
+    render(<GamePage />)
+
+    expect(screen.queryByText('请使用电脑访问')).toBeNull()
+    expect(screen.getByTestId('top-status-bar')).toBeDefined()
+    expect(screen.getByTestId('story-panel')).toBeDefined()
+    expect(screen.getByTestId('dashboard-panel')).toBeDefined()
+    expect(screen.getByTestId('action-bar')).toBeDefined()
+  })
 })
