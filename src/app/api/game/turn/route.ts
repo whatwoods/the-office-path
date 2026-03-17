@@ -1,7 +1,11 @@
-import { AgentInputSchema } from "@/ai/schemas";
 import { runCriticalDayPipeline } from "@/ai/orchestration/critical";
-import { runQuarterlyPipeline } from "@/ai/orchestration/quarterly";
+import {
+  runExecutiveQuarterlyPipeline,
+  runQuarterlyPipeline,
+} from "@/ai/orchestration/quarterly";
+import { AgentInputSchema } from "@/ai/schemas";
 import type { CriticalChoice, QuarterPlan } from "@/types/actions";
+import type { ExecutiveQuarterPlan } from "@/types/executive";
 import type { GameState } from "@/types/game";
 import type { AIConfig } from "@/types/settings";
 
@@ -15,19 +19,13 @@ export async function POST(request: Request) {
     };
 
     if (!body.state) {
-      return Response.json(
-        { success: false, error: "Missing state" },
-        { status: 400 },
-      );
+      return Response.json({ success: false, error: "Missing state" }, { status: 400 });
     }
 
     const stateCheck = AgentInputSchema.shape.state.safeParse(body.state);
     if (!stateCheck.success) {
       return Response.json(
-        {
-          success: false,
-          error: `Invalid state: ${stateCheck.error.message}`,
-        },
+        { success: false, error: `Invalid state: ${stateCheck.error.message}` },
         { status: 400 },
       );
     }
@@ -59,7 +57,28 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await runQuarterlyPipeline(state, body.plan, body.aiConfig);
+    if (state.phase2Path === "executive") {
+      const result = await runExecutiveQuarterlyPipeline(
+        state,
+        body.plan as ExecutiveQuarterPlan,
+        body.aiConfig,
+      );
+      return Response.json({
+        success: true,
+        state: result.state,
+        narrative: result.narrative,
+        events: result.events,
+        performanceRating: result.performanceRating ?? null,
+        salaryChange: result.salaryChange ?? null,
+        criticalChoices: result.criticalChoices ?? [],
+      });
+    }
+
+    const result = await runQuarterlyPipeline(
+      state,
+      body.plan as QuarterPlan,
+      body.aiConfig,
+    );
     return Response.json({
       success: true,
       state: result.state,

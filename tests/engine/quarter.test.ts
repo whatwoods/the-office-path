@@ -70,4 +70,41 @@ describe("settleQuarter", () => {
     expect(result.state.performanceWindow.quartersInWindow).toBe(0);
     expect(result.performanceRating).toBeDefined();
   });
+
+  it("resets the MaiMai post counter after settlement", () => {
+    const state = makeQuarterlyState();
+    state.maimaiPostsThisQuarter = 2;
+
+    const plan: QuarterPlan = {
+      actions: [{ action: "slack_off" }],
+    };
+
+    const result = settleQuarter(state, plan);
+
+    expect(result.state.maimaiPostsThisQuarter).toBe(0);
+  });
+
+  it("throws when used for the executive path", () => {
+    const state = makeQuarterlyState();
+    state.phase = 2;
+    state.phase2Path = "executive";
+    state.executive = {
+      stage: "E1",
+      departmentPerformance: 50,
+      boardSupport: 40,
+      teamLoyalty: 60,
+      politicalCapital: 20,
+      stockPrice: 100,
+      departmentCount: 1,
+      consecutiveLowPerformance: 0,
+      vestedShares: 0,
+      onTargetQuarters: 0,
+    };
+
+    const plan: QuarterPlan = {
+      actions: [{ action: "slack_off" }],
+    };
+
+    expect(() => settleQuarter(state, plan)).toThrow("Use settleExecutiveQuarter");
+  });
 });

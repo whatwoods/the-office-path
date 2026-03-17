@@ -5,8 +5,8 @@ import { checkPromotion, getNextLevels } from "@/engine/promotion";
 import type { GameState } from "@/types/game";
 
 function makeState(overrides: Partial<GameState> = {}): GameState {
-  return {
-    version: "1.0",
+  const baseState: GameState = {
+    version: "1.1",
     phase: 1,
     currentQuarter: 4,
     timeMode: "quarterly",
@@ -30,7 +30,24 @@ function makeState(overrides: Partial<GameState> = {}): GameState {
     world: { economyCycle: "stable", industryTrends: [], companyStatus: "stable" },
     staminaRemaining: 10,
     founderSalary: null,
+    phase2Path: null,
+    executive: null,
+    maimaiPosts: [],
+    maimaiPostsThisQuarter: 0,
+    jobOffers: [],
+    jobHistory: [],
+  };
+
+  return {
+    ...baseState,
     ...overrides,
+    phase2Path: overrides.phase2Path ?? baseState.phase2Path,
+    executive: overrides.executive ?? baseState.executive,
+    maimaiPosts: overrides.maimaiPosts ?? baseState.maimaiPosts,
+    maimaiPostsThisQuarter:
+      overrides.maimaiPostsThisQuarter ?? baseState.maimaiPostsThisQuarter,
+    jobOffers: overrides.jobOffers ?? baseState.jobOffers,
+    jobHistory: overrides.jobHistory ?? baseState.jobHistory,
   };
 }
 
@@ -98,6 +115,7 @@ describe("checkPromotion", () => {
           favor: 65,
           isActive: true,
           currentStatus: "在岗",
+          companyName: "X",
         },
       ],
     });

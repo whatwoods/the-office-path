@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { POST } from "@/app/api/game/turn/route";
-import { runCriticalDayPipeline } from "@/ai/orchestration/critical";
-import { runQuarterlyPipeline } from "@/ai/orchestration/quarterly";
-import { createNewGame } from "@/engine/state";
-import type { QuarterPlan } from "@/types/actions";
 
 vi.mock("@/ai/orchestration/quarterly", () => ({
   runQuarterlyPipeline: vi.fn().mockResolvedValue({
-    state: { timeMode: "critical", criticalPeriod: { type: "company_crisis", currentDay: 1, maxDays: 7, staminaPerDay: 3 } },
+    state: {
+      timeMode: "critical",
+      criticalPeriod: {
+        type: "company_crisis",
+        currentDay: 1,
+        maxDays: 7,
+        staminaPerDay: 3,
+      },
+    },
     narrative: "季度总结：遇到了公司危机",
     events: [],
     performanceRating: "A",
@@ -22,6 +25,22 @@ vi.mock("@/ai/orchestration/quarterly", () => ({
       },
     ],
   }),
+  runExecutiveQuarterlyPipeline: vi.fn().mockResolvedValue({
+    state: {
+      timeMode: "critical",
+      criticalPeriod: {
+        type: "board_review",
+        currentDay: 1,
+        maxDays: 3,
+        staminaPerDay: 3,
+      },
+      phase2Path: "executive",
+      executive: { stage: "E1", departmentPerformance: 60 },
+    },
+    narrative: "高管季度总结：你推进了业务，也被董事会盯上了",
+    events: [],
+    criticalChoices: [],
+  }),
 }));
 
 vi.mock("@/ai/orchestration/critical", () => ({
@@ -33,8 +52,21 @@ vi.mock("@/ai/orchestration/critical", () => ({
   }),
 }));
 
-const mockedRunQuarterlyPipeline = vi.mocked(runQuarterlyPipeline);
+import { runCriticalDayPipeline } from "@/ai/orchestration/critical";
+import {
+  runExecutiveQuarterlyPipeline,
+  runQuarterlyPipeline,
+} from "@/ai/orchestration/quarterly";
+import { POST } from "@/app/api/game/turn/route";
+import { createNewGame } from "@/engine/state";
+import type { QuarterPlan } from "@/types/actions";
+import type { ExecutiveQuarterPlan } from "@/types/executive";
+
 const mockedRunCriticalDayPipeline = vi.mocked(runCriticalDayPipeline);
+const mockedRunQuarterlyPipeline = vi.mocked(runQuarterlyPipeline);
+const mockedRunExecutiveQuarterlyPipeline = vi.mocked(
+  runExecutiveQuarterlyPipeline,
+);
 
 describe("POST /api/game/turn", () => {
   beforeEach(() => {
@@ -135,6 +167,85 @@ describe("POST /api/game/turn", () => {
     expect(mockedRunCriticalDayPipeline).toHaveBeenCalledWith(
       state,
       choice,
+      aiConfig,
+    );
+  });
+
+  it("routes executive quarterly plans to the executive pipeline", async () => {
+    const state = createNewGame();
+    state.timeMode = "quarterly";
+    state.criticalPeriod = null;
+    state.phase = 2;
+    state.phase2Path = "executive";
+    state.executive = {
+      stage: "E1",
+      departmentPerformance: 50,
+      boardSupport: 40,
+      teamLoyalty: 60,
+      politicalCapital: 20,
+      stockPrice: 100,
+      departmentCount: 1,
+      consecutiveLowPerformance: 0,
+      vestedShares: 0,
+      onTargetQuarters: 0,
+    };
+
+    const plan: ExecutiveQuarterPlan = {
+      actions: [{ action: "push_business" }, { action: "rest" }],
+    };
+
+    const req = new Request("http://localhost/api/game/turn", {
+      method: "POST",
+      body: JSON.stringify({ state, plan }),
+    });
+
+    const res = await POST(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(mockedRunExecutiveQuarterlyPipeline).toHaveBeenCalledOnce();
+    expect(mockedRunQuarterlyPipeline).not.toHaveBeenCalled();
+    expect(json.state.phase2Path).toBe("executive");
+  });
+
+  it("passes aiConfig to the executive quarterly pipeline when provided", async () => {
+    const state = createNewGame();
+    state.timeMode = "quarterly";
+    state.criticalPeriod = null;
+    state.phase = 2;
+    state.phase2Path = "executive";
+    state.executive = {
+      stage: "E1",
+      departmentPerformance: 50,
+      boardSupport: 40,
+      teamLoyalty: 60,
+      politicalCapital: 20,
+      stockPrice: 100,
+      departmentCount: 1,
+      consecutiveLowPerformance: 0,
+      vestedShares: 0,
+      onTargetQuarters: 0,
+    };
+    const plan: ExecutiveQuarterPlan = {
+      actions: [{ action: "push_business" }, { action: "rest" }],
+    };
+    const aiConfig = {
+      provider: "anthropic" as const,
+      apiKey: "sk-turn-exec",
+      modelOverrides: {},
+    };
+
+    const req = new Request("http://localhost/api/game/turn", {
+      method: "POST",
+      body: JSON.stringify({ state, plan, aiConfig }),
+    });
+
+    await POST(req);
+
+    expect(mockedRunExecutiveQuarterlyPipeline).toHaveBeenCalledWith(
+      state,
+      plan,
       aiConfig,
     );
   });

@@ -1,5 +1,6 @@
 import type { ActionAllocation, QuarterPlan } from "@/types/actions";
 import { ACTION_STAMINA_COST } from "@/types/actions";
+import { rollOfferChance } from "@/engine/offer-generation";
 import type { PlayerAttributes } from "@/types/game";
 
 export interface ActionResult {
@@ -10,6 +11,7 @@ export interface ActionResult {
   npcFavorAmount?: number;
   sideHustleIncome?: number;
   sideHustleCaught?: boolean;
+  triggerOfferGeneration?: boolean;
 }
 
 export function processAction(
@@ -84,6 +86,7 @@ export function processAction(
 
     case "job_interview":
       result.statChanges = { network: Math.floor(2 * effectMultiplier) };
+      result.triggerOfferGeneration = rollOfferChance(randomFn);
       return result;
 
     case "resign_startup":

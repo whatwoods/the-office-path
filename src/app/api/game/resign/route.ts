@@ -1,14 +1,19 @@
-import { AgentInputSchema } from "@/ai/schemas";
 import { runNarrativeAgent } from "@/ai/agents/narrative";
 import { validateChoices } from "@/ai/orchestration/conflict";
+import { AgentInputSchema } from "@/ai/schemas";
 import { canStartup, transitionToPhase2 } from "@/engine/phase-transition";
 import type { AgentInput } from "@/types/agents";
+import type { Phase2Path } from "@/types/executive";
 import type { CriticalPeriodType, GameState } from "@/types/game";
 import type { AIConfig } from "@/types/settings";
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { state?: GameState; aiConfig?: AIConfig };
+    const body = (await request.json()) as {
+      state?: GameState;
+      path?: Phase2Path;
+      aiConfig?: AIConfig;
+    };
 
     if (!body.state) {
       return Response.json({ success: false, error: "Missing state" }, { status: 400 });
@@ -25,14 +30,12 @@ export async function POST(request: Request) {
     const currentState = body.state;
 
     if (!canStartup(currentState.job.level)) {
-      return Response.json(
-        { success: false, error: "等级不足以创业" },
-        { status: 400 }
-      );
+      return Response.json({ success: false, error: "等级不足以创业" }, { status: 400 });
     }
 
-    const newState = transitionToPhase2(currentState);
-    
+    const path = body.path ?? "startup";
+    const newState = transitionToPhase2(currentState, path);
+
     const agentInput: AgentInput = { state: newState, recentHistory: [] };
     const worldContext = {
       economy: newState.world.economyCycle,
@@ -40,7 +43,7 @@ export async function POST(request: Request) {
       companyStatus: newState.world.companyStatus,
       newsItems: [],
     };
-    
+
     const narrativeOutput = await runNarrativeAgent(
       agentInput,
       worldContext,
@@ -48,11 +51,11 @@ export async function POST(request: Request) {
       { npcActions: [], chatMessages: [] },
       [],
       true,
-      "玩家离职创业了。",
+      path === "executive" ? "玩家决定留在公司，转入高管路线。" : "玩家离职创业了。",
       true,
       body.aiConfig,
     );
-    
+
     let criticalChoices;
     if (narrativeOutput.choices && newState.criticalPeriod) {
       criticalChoices = validateChoices(
@@ -67,7 +70,7 @@ export async function POST(request: Request) {
       success: true,
       state: newState,
       narrative: narrativeOutput.narrative,
-      criticalChoices
+      criticalChoices,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

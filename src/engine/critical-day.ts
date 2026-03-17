@@ -49,7 +49,11 @@ export function settleCriticalDay(
   if (dayResult.isComplete) {
     newState.timeMode = "quarterly";
     newState.criticalPeriod = null;
-    newState.staminaRemaining = getMaxStamina("quarterly", newState.housing.type);
+    newState.staminaRemaining = getMaxStamina(
+      "quarterly",
+      newState.housing.type,
+      newState.phase2Path,
+    );
   } else {
     newState.criticalPeriod = dayResult.period;
     newState.staminaRemaining = newState.criticalPeriod.staminaPerDay;

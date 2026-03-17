@@ -4,6 +4,8 @@ import { useState } from 'react'
 import type { ActionAllocation, Phase1Action, Phase2Action } from '@/types/actions'
 import { ACTION_STAMINA_COST } from '@/types/actions'
 import type { NPC, JobLevel } from '@/types/game'
+import type { Phase2Path } from '@/types/executive'
+import { ExecutiveActions } from '@/components/game/ExecutiveActions'
 
 interface ActionCardConfig {
   action: Phase1Action | Phase2Action
@@ -41,17 +43,21 @@ const RESIGN_LEVELS: JobLevel[] = ['L6_tech', 'L6_mgmt', 'L7_tech', 'L7_mgmt', '
 
 interface QuarterlyActionsProps {
   phase: 1 | 2
+  phase2Path: Phase2Path | null
   level: JobLevel
-  allocations: ActionAllocation[]
+  allocations: Array<{ action: string; target?: string }>
   staminaUsed: number
   staminaMax: number
   npcs: NPC[]
-  onAllocate: (allocation: ActionAllocation) => void
+  onAllocate: {
+    bivarianceHack: (allocation: { action: string; target?: string }) => void
+  }['bivarianceHack']
   onDeallocate: (index: number) => void
 }
 
 export function QuarterlyActions({
   phase,
+  phase2Path,
   level,
   allocations,
   staminaUsed,
@@ -61,6 +67,18 @@ export function QuarterlyActions({
   onDeallocate,
 }: QuarterlyActionsProps) {
   const [targetPicker, setTargetPicker] = useState<{ action: string; type: 'study' | 'socialize' } | null>(null)
+
+  if (phase === 2 && phase2Path === 'executive') {
+    return (
+      <ExecutiveActions
+        allocations={allocations}
+        staminaUsed={staminaUsed}
+        staminaMax={staminaMax}
+        onAllocate={onAllocate}
+        onDeallocate={onDeallocate}
+      />
+    )
+  }
 
   const actions = phase === 1 ? PHASE1_ACTIONS : PHASE2_ACTIONS
   const canResign = phase === 1 && RESIGN_LEVELS.includes(level)

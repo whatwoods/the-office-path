@@ -9,6 +9,38 @@ import type {
 } from "@/types/agents";
 import type { AIConfig } from "@/types/settings";
 
+const MAIMAI_INSTRUCTIONS = `
+## 麦麦帖子后果分析
+
+当输入中包含 maimaiActivity 时，你必须分析每条玩家帖子和互动：
+
+对于每条玩家发的帖（playerPosts）：
+1. 分析帖子内容的性质（吐槽/爆料/炫耀/求助/正能量）
+2. 根据内容爆炸性、与当前游戏状态的相关性、时机，判断传播等级（ignored/small_buzz/trending/viral）
+3. 决定后果：对玩家属性的影响、对NPC好感的影响、是否暴露身份
+4. 生成1-5条匿名回复
+
+身份暴露判断依据：
+- 帖子是否涉及只有少数人知道的信息
+- 玩家声望（高声望更容易被识别）
+- 帖子是否与玩家近期行为高度关联
+
+对于点赞和评论（playerLikes, playerComments）：
+- 点赞=表态，可能影响相关NPC好感
+- 评论内容也需分析后果
+`;
+
+const OFFER_INSTRUCTIONS = `
+## Offer 生成
+
+当输入中包含 offerRequested: true 时，生成一个 JobOffer：
+- companyName: 生成一个有创意的中文互联网公司名
+- companyProfile: 一句话描述（如"专注AI教育的独角兽"）
+- companyStatus: 根据当前经济环境决定（boom时更多expanding，winter时更多shrinking）
+
+将 Offer 放在 phoneMessages 中，app 为 "hrzhipin"。
+`;
+
 function buildSystemPrompt(input: AgentInput): string {
   const phase = input.state.phase;
   const quarter = input.state.currentQuarter;
@@ -48,6 +80,8 @@ function buildSystemPrompt(input: AgentInput): string {
 - 危机事件（低频高影响）：合伙人分歧、大客户流失、现金流断裂`;
   }
 
+  prompt += `${MAIMAI_INSTRUCTIONS}\n${OFFER_INSTRUCTIONS}`;
+
   return prompt;
 }
 
@@ -68,7 +102,7 @@ function buildUserPrompt(
   const news = worldContext.newsItems.join("、") || "无";
   const trends = worldContext.trends.join("、") || "无";
 
-  return `世界环境：
+  let userPrompt = `世界环境：
 - 经济周期：${worldContext.economy}
 - 公司状态：${worldContext.companyStatus}
 - 行业趋势：${trends}
@@ -84,6 +118,36 @@ function buildUserPrompt(
 ${history ? `\n最近历史：\n${history}` : ""}
 
 请生成本季度的事件和手机消息。`;
+
+  if (input.maimaiActivity) {
+    const { playerPosts, playerLikes, playerComments } = input.maimaiActivity;
+
+    if (
+      playerPosts.length > 0 ||
+      playerLikes.length > 0 ||
+      playerComments.length > 0
+    ) {
+      userPrompt += `\n\n## 本季度麦麦活动\n`;
+
+      if (playerPosts.length > 0) {
+        userPrompt += `玩家发帖：\n${playerPosts
+          .map((post) => `- "${post.content}"`)
+          .join("\n")}\n`;
+      }
+
+      if (playerLikes.length > 0) {
+        userPrompt += `玩家点赞的帖子ID：${playerLikes.join(", ")}\n`;
+      }
+
+      if (playerComments.length > 0) {
+        userPrompt += `玩家评论：\n${playerComments
+          .map((comment) => `- 对帖子${comment.postId}: "${comment.content}"`)
+          .join("\n")}\n`;
+      }
+    }
+  }
+
+  return userPrompt;
 }
 
 export async function runEventAgent(

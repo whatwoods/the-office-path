@@ -4,6 +4,7 @@ import type {
   HousingType,
   TimeMode,
 } from "@/types/game";
+import type { Phase2Path } from "@/types/executive";
 
 export const CRITICAL_PERIOD_CONFIG: Record<
   CriticalPeriodType,
@@ -17,15 +18,29 @@ export const CRITICAL_PERIOD_CONFIG: Record<
   startup_launch: { maxDays: 7 },
   fundraising: { maxDays: 5 },
   ipo_review: { maxDays: 10 },
+  new_company_onboarding: { maxDays: 3 },
+  executive_onboarding: { maxDays: 3 },
+  board_review: { maxDays: 3 },
+  power_struggle: { maxDays: 5 },
+  major_decision: { maxDays: 5 },
+  power_transition: { maxDays: 7 },
 };
 
 export function advanceQuarter(currentQuarter: number): number {
   return currentQuarter + 1;
 }
 
-export function getMaxStamina(mode: TimeMode, housingType: HousingType): number {
+export function getMaxStamina(
+  mode: TimeMode,
+  housingType: HousingType,
+  phase2Path?: Phase2Path | null,
+): number {
   if (mode === "critical") {
     return 3;
+  }
+
+  if (phase2Path === "executive") {
+    return 10;
   }
 
   return housingType === "slum" ? 9 : 10;

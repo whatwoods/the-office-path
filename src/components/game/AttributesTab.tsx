@@ -3,6 +3,7 @@
 import { useGameStore } from '@/store/gameStore'
 import { PixelProgressBar } from '@/components/ui/PixelProgressBar'
 import { CompanyStats } from '@/components/game/CompanyStats'
+import { ExecutiveStats } from '@/components/game/ExecutiveStats'
 import { useRef, useEffect, useState } from 'react'
 import type { PlayerAttributes } from '@/types/game'
 
@@ -84,8 +85,12 @@ export function AttributesTab() {
         <span className="text-sm text-[var(--pixel-text-amber)]">¥{money}</span>
       </div>
 
+      {state.phase2Path === 'executive' && state.executive && (
+        <ExecutiveStats executive={state.executive} />
+      )}
+
       {/* Phase 2 公司属性 */}
-      {state.phase === 2 && state.company && (
+      {state.phase === 2 && state.phase2Path !== 'executive' && state.company && (
         <CompanyStats company={state.company} />
       )}
     </div>

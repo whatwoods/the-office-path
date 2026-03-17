@@ -35,6 +35,12 @@ const CriticalPeriodTypeSchema = z.enum([
   "startup_launch",
   "fundraising",
   "ipo_review",
+  "new_company_onboarding",
+  "executive_onboarding",
+  "board_review",
+  "power_struggle",
+  "major_decision",
+  "power_transition",
 ]);
 
 const PerformanceRatingSchema = z.enum(["S", "A", "B+", "B", "C"]);
@@ -83,6 +89,59 @@ const NPCSchema = z.object({
   favor: z.number().min(0).max(100),
   isActive: z.boolean(),
   currentStatus: z.string(),
+  companyName: z.string(),
+});
+
+const ExecutiveStateSchema = z.object({
+  stage: z.enum(["E1", "E2", "E3"]),
+  departmentPerformance: z.number(),
+  boardSupport: z.number(),
+  teamLoyalty: z.number(),
+  politicalCapital: z.number(),
+  stockPrice: z.number(),
+  departmentCount: z.number(),
+  consecutiveLowPerformance: z.number(),
+  vestedShares: z.number(),
+  onTargetQuarters: z.number(),
+});
+
+const MaimaiCommentSchema = z.object({
+  id: z.string(),
+  author: z.enum(["player", "anonymous"]),
+  content: z.string(),
+  authorName: z.string(),
+});
+
+const MaimaiPostSchema = z.object({
+  id: z.string(),
+  quarter: z.number(),
+  author: z.enum(["player", "anonymous"]),
+  content: z.string(),
+  likes: z.number(),
+  playerLiked: z.boolean(),
+  comments: z.array(MaimaiCommentSchema),
+  viralLevel: z.enum(["ignored", "small_buzz", "trending", "viral"]).optional(),
+  identityExposed: z.boolean().optional(),
+});
+
+const JobOfferSchema = z.object({
+  id: z.string(),
+  companyName: z.string(),
+  companyProfile: z.string(),
+  offeredLevel: JobLevelSchema,
+  offeredSalary: z.number(),
+  companyStatus: z.enum(["expanding", "stable", "shrinking"]),
+  expiresAtQuarter: z.number(),
+  negotiated: z.boolean(),
+});
+
+const PastJobSchema = z.object({
+  companyName: z.string(),
+  level: JobLevelSchema,
+  salary: z.number(),
+  startQuarter: z.number(),
+  endQuarter: z.number(),
+  reasonLeft: z.enum(["job_hop", "startup", "fired", "promoted_executive"]),
 });
 
 const CompanyStateSchema = z.object({
@@ -162,6 +221,53 @@ export const EventAgentOutputSchema = z.object({
       sender: z.string().optional(),
     }),
   ),
+  maimaiResults: z
+    .object({
+      postResults: z.array(
+        z.object({
+          postId: z.string(),
+          aiAnalysis: z.string(),
+          viralLevel: z.enum(["ignored", "small_buzz", "trending", "viral"]),
+          consequences: z.object({
+            playerEffects: PartialAttributesSchema,
+            npcReactions: z
+              .array(
+                z.object({
+                  npcName: z.string(),
+                  favorChange: z.number(),
+                }),
+              )
+              .optional(),
+            identityExposed: z.boolean(),
+            exposedTo: z.array(z.string()),
+          }),
+          generatedReplies: z.array(
+            z.object({
+              sender: z.string(),
+              content: z.string(),
+            }),
+          ),
+        }),
+      ),
+      interactionResults: z.array(
+        z.object({
+          targetPostId: z.string(),
+          type: z.enum(["like", "comment"]),
+          consequences: z.object({
+            playerEffects: PartialAttributesSchema,
+            npcReactions: z
+              .array(
+                z.object({
+                  npcName: z.string(),
+                  favorChange: z.number(),
+                }),
+              )
+              .optional(),
+          }),
+        }),
+      ),
+    })
+    .optional(),
 });
 
 export const NPCAgentOutputSchema = z.object({
@@ -249,6 +355,12 @@ const GameStateSchema = z.object({
   }),
   staminaRemaining: z.number(),
   founderSalary: z.number().nullable(),
+  phase2Path: z.enum(["startup", "executive"]).nullable(),
+  executive: ExecutiveStateSchema.nullable(),
+  maimaiPosts: z.array(MaimaiPostSchema),
+  maimaiPostsThisQuarter: z.number(),
+  jobOffers: z.array(JobOfferSchema),
+  jobHistory: z.array(PastJobSchema),
 });
 
 export const AgentInputSchema = z.object({
@@ -265,6 +377,12 @@ export const CRITICAL_PERIOD_CATEGORIES: Record<string, string[]> = {
   startup_launch: ["搭建", "招人", "方向"],
   fundraising: ["展示", "谈判", "让步"],
   ipo_review: ["合规", "公关", "运作"],
+  new_company_onboarding: ["适应", "社交", "表现"],
+  executive_onboarding: ["接管", "部署", "表态"],
+  board_review: ["汇报", "拉票", "甩锅"],
+  power_struggle: ["结盟", "反击", "妥协"],
+  major_decision: ["分析", "推动", "风控"],
+  power_transition: ["布局", "造势", "谈判"],
 };
 
 export {

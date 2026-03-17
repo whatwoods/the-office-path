@@ -27,7 +27,7 @@ describe("POST /api/game/resign", () => {
 
   it("eligible level returns 200 with state, narrative and criticalChoices", async () => {
     const state = createNewGame();
-    state.job.level = "L8"; // L8 makes it eligible
+    state.job.level = "L8";
 
     const req = new Request("http://localhost/api/game/resign", {
       method: "POST",
@@ -49,7 +49,7 @@ describe("POST /api/game/resign", () => {
 
   it("ineligible level returns 400", async () => {
     const state = createNewGame();
-    state.job.level = "L1"; // Ineligible
+    state.job.level = "L1";
 
     const req = new Request("http://localhost/api/game/resign", {
       method: "POST",
@@ -62,6 +62,25 @@ describe("POST /api/game/resign", () => {
     const json = await res.json();
     expect(json.success).toBe(false);
     expect(json.error).toBe("等级不足以创业");
+  });
+
+  it("supports the executive path when requested", async () => {
+    const state = createNewGame();
+    state.job.level = "L8";
+
+    const req = new Request("http://localhost/api/game/resign", {
+      method: "POST",
+      body: JSON.stringify({ state, path: "executive" }),
+    });
+
+    const res = await POST(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(json.state.phase2Path).toBe("executive");
+    expect(json.state.executive?.stage).toBe("E1");
+    expect(json.state.criticalPeriod?.type).toBe("executive_onboarding");
   });
 
   it("passes aiConfig to the startup narrative agent when provided", async () => {

@@ -3,27 +3,35 @@ import { runNarrativeAgent } from "@/ai/agents/narrative";
 import { runNPCAgent } from "@/ai/agents/npc";
 import { runWorldAgent } from "@/ai/agents/world";
 import {
+  validateChoices,
   validateEventNPCConsistency,
+  validateExecutiveEvents,
   validateEvents,
   validateNPCActions,
-  validateChoices,
 } from "@/ai/orchestration/conflict";
 import {
   createQuarterSummary,
   getRecentHistory,
 } from "@/ai/orchestration/history";
+import { buildPhoneReplyContext } from "@/ai/orchestration/phone-context";
 import { applyStatChanges } from "@/engine/attributes";
+import { settleExecutiveQuarter } from "@/engine/executive-quarter";
 import { settleQuarter } from "@/engine/quarter";
 import { enterCriticalPeriod } from "@/engine/time";
-import { buildPhoneReplyContext } from "@/ai/orchestration/phone-context";
-import type { QuarterPlan, CriticalChoice } from "@/types/actions";
+import type { CriticalChoice, QuarterPlan } from "@/types/actions";
 import type {
   AgentInput,
   EventAgentOutput,
   NPCAgentOutput,
   WorldAgentOutput,
 } from "@/types/agents";
-import type { GameState, PhoneApp, PhoneMessage } from "@/types/game";
+import type { ExecutiveQuarterPlan } from "@/types/executive";
+import type {
+  CriticalPeriodType,
+  GameState,
+  PhoneApp,
+  PhoneMessage,
+} from "@/types/game";
 import type { AIConfig } from "@/types/settings";
 
 export interface QuarterlyPipelineResult {
@@ -40,6 +48,19 @@ export interface QuarterlyPipelineResult {
   performanceRating?: string;
   salaryChange?: number;
   criticalChoices?: CriticalChoice[];
+}
+
+type PromptAction = Array<{ action: string; target?: string }>;
+
+interface FinalizePipelineOptions {
+  originalState: GameState;
+  settledState: GameState;
+  beforeAttributes: GameState["player"];
+  playerActions: PromptAction;
+  performanceRating?: string;
+  salaryChange?: number;
+  forcedCriticalType?: CriticalPeriodType | null;
+  aiConfig?: AIConfig;
 }
 
 function createPhoneMessage(
@@ -74,76 +95,141 @@ export function deduplicateMessages(
   });
 }
 
-export async function runQuarterlyPipeline(
+function collectMaimaiActivity(
   state: GameState,
-  plan: QuarterPlan,
-  aiConfig?: AIConfig,
-): Promise<QuarterlyPipelineResult> {
-  const beforeAttributes = { ...state.player };
-
-  const engineResult = settleQuarter(state, plan);
-  const settledState = engineResult.state;
-
-  const recentHistory = getRecentHistory(settledState.history);
-  const agentInput: AgentInput = { state: settledState, recentHistory };
-
-  const worldOutput = await runWorldAgent(agentInput, aiConfig);
-
-  const rawEventOutput = await runEventAgent(agentInput, worldOutput, aiConfig);
-  const worldValidatedEvents = validateEvents(rawEventOutput.events, worldOutput);
-  const npcValidatedEvents = validateEventNPCConsistency(
-    worldValidatedEvents,
-    settledState.npcs,
+): AgentInput["maimaiActivity"] | undefined {
+  const currentQuarterPosts = state.maimaiPosts.filter(
+    (post) => post.quarter === state.currentQuarter,
   );
-  const eventOutput: EventAgentOutput = {
-    ...rawEventOutput,
-    events: npcValidatedEvents,
-  };
+  const playerPosts = currentQuarterPosts.filter((post) => post.author === "player");
+  const playerLikes = currentQuarterPosts
+    .filter((post) => post.playerLiked)
+    .map((post) => post.id);
+  const playerComments = currentQuarterPosts.flatMap((post) =>
+    post.comments
+      .filter((comment) => comment.author === "player")
+      .map((comment) => ({
+        postId: post.id,
+        content: comment.content,
+      })),
+  );
 
+  if (
+    playerPosts.length === 0 &&
+    playerLikes.length === 0 &&
+    playerComments.length === 0
+  ) {
+    return undefined;
+  }
+
+  return {
+    playerPosts,
+    playerLikes,
+    playerComments,
+  };
+}
+
+function applyNamedNpcReactions(
+  state: GameState,
+  reactions: Array<{ npcName: string; favorChange: number }> | undefined,
+): void {
+  if (!reactions) {
+    return;
+  }
+
+  for (const reaction of reactions) {
+    const npc = state.npcs.find((candidate) => candidate.name === reaction.npcName);
+    if (!npc) {
+      continue;
+    }
+
+    npc.favor = Math.max(0, Math.min(100, npc.favor + reaction.favorChange));
+  }
+}
+
+function applyEventEffects(
+  state: GameState,
+  eventOutput: EventAgentOutput,
+): void {
   for (const event of eventOutput.events) {
     if (event.statChanges) {
-      settledState.player = applyStatChanges(settledState.player, event.statChanges);
+      state.player = applyStatChanges(state.player, event.statChanges);
+    }
+  }
+}
+
+function applyMaimaiResults(
+  state: GameState,
+  maimaiResults: EventAgentOutput["maimaiResults"],
+): void {
+  if (!maimaiResults) {
+    return;
+  }
+
+  for (const result of maimaiResults.postResults) {
+    if (result.consequences.playerEffects) {
+      state.player = applyStatChanges(state.player, result.consequences.playerEffects);
+    }
+
+    applyNamedNpcReactions(state, result.consequences.npcReactions);
+
+    const post = state.maimaiPosts.find((entry) => entry.id === result.postId);
+    if (!post) {
+      continue;
+    }
+
+    post.viralLevel = result.viralLevel;
+    post.identityExposed = result.consequences.identityExposed;
+
+    for (const reply of result.generatedReplies) {
+      post.comments.push({
+        id: `reply_${post.id}_${Math.random().toString(36).slice(2, 8)}`,
+        author: "anonymous",
+        content: reply.content,
+        authorName: reply.sender,
+      });
     }
   }
 
-  const phoneReplyContext = buildPhoneReplyContext(settledState.phoneMessages);
+  for (const interaction of maimaiResults.interactionResults) {
+    if (interaction.consequences.playerEffects) {
+      state.player = applyStatChanges(
+        state.player,
+        interaction.consequences.playerEffects,
+      );
+    }
 
-  const rawNPCOutput = await runNPCAgent(
-    agentInput,
-    worldOutput,
-    eventOutput,
-    plan.actions,
-    phoneReplyContext,
-    aiConfig,
-  );
-  const npcOutput = validateNPCActions(rawNPCOutput, settledState.npcs);
+    applyNamedNpcReactions(state, interaction.consequences.npcReactions);
+  }
+}
 
+function applyNPCOutput(state: GameState, npcOutput: NPCAgentOutput): void {
   for (const action of npcOutput.npcActions) {
-    const npc = settledState.npcs.find((candidate) => candidate.name === action.npcName);
+    const npc = state.npcs.find((candidate) => candidate.name === action.npcName);
     if (npc) {
       npc.favor = Math.max(0, Math.min(100, npc.favor + action.favorChange));
     }
   }
 
   if (npcOutput.newNpcs) {
-    settledState.npcs.push(...npcOutput.newNpcs);
+    state.npcs.push(...npcOutput.newNpcs);
   }
 
   if (npcOutput.departedNpcs) {
     for (const npcId of npcOutput.departedNpcs) {
-      const npc = settledState.npcs.find((candidate) => candidate.id === npcId);
+      const npc = state.npcs.find((candidate) => candidate.id === npcId);
       if (npc) {
         npc.isActive = false;
       }
     }
   }
+}
 
-  settledState.world = {
-    economyCycle: worldOutput.economy,
-    industryTrends: worldOutput.trends,
-    companyStatus: worldOutput.companyStatus,
-  };
-
+function appendPhoneMessages(
+  state: GameState,
+  eventOutput: EventAgentOutput,
+  npcOutput: NPCAgentOutput,
+): Array<{ app: PhoneApp; content: string; sender?: string }> {
   const allMessages = deduplicateMessages([
     ...eventOutput.phoneMessages,
     ...npcOutput.chatMessages.map((message) => ({
@@ -154,37 +240,150 @@ export async function runQuarterlyPipeline(
   ]);
 
   for (const message of allMessages) {
-    settledState.phoneMessages.push(
-      createPhoneMessage(settledState.currentQuarter, message),
-    );
+    state.phoneMessages.push(createPhoneMessage(state.currentQuarter, message));
   }
+
+  return allMessages;
+}
+
+function clampState(state: GameState): void {
+  for (const key of Object.keys(state.player) as Array<keyof GameState["player"]>) {
+    if (key === "money") {
+      continue;
+    }
+
+    const value = state.player[key];
+    state.player[key] = Math.max(0, Math.min(100, value));
+  }
+
+  for (const npc of state.npcs) {
+    npc.favor = Math.max(0, Math.min(100, npc.favor));
+  }
+}
+
+async function maybeGenerateCriticalChoices(
+  state: GameState,
+  worldOutput: WorldAgentOutput,
+  eventOutput: EventAgentOutput,
+  forcedCriticalType: CriticalPeriodType | null | undefined,
+  aiConfig?: AIConfig,
+): Promise<CriticalChoice[] | undefined> {
+  const criticalEvent = eventOutput.events.find(
+    (event) => event.triggersCritical && event.criticalType,
+  );
+  const criticalToEnter =
+    forcedCriticalType ?? criticalEvent?.criticalType ?? null;
+
+  if (!criticalToEnter) {
+    return undefined;
+  }
+
+  state.timeMode = "critical";
+  state.criticalPeriod = enterCriticalPeriod(criticalToEnter);
+  state.staminaRemaining = state.criticalPeriod.staminaPerDay;
+
+  const openingChoices = await runNarrativeAgent(
+    { state, recentHistory: getRecentHistory(state.history) },
+    worldOutput,
+    {
+      events: criticalEvent ? [criticalEvent] : [],
+      phoneMessages: [],
+      maimaiResults: eventOutput.maimaiResults,
+    },
+    { npcActions: [], chatMessages: [] },
+    [],
+    true,
+    criticalEvent
+      ? `事件触发了关键期：${criticalEvent.title}`
+      : `进入关键期：${criticalToEnter}`,
+    true,
+    aiConfig,
+  );
+
+  if (!openingChoices.choices || !state.criticalPeriod) {
+    return undefined;
+  }
+
+  return validateChoices(
+    openingChoices.choices,
+    state.staminaRemaining,
+    state.criticalPeriod.type,
+    state.player,
+  );
+}
+
+async function finalizePipeline({
+  originalState,
+  settledState,
+  beforeAttributes,
+  playerActions,
+  performanceRating,
+  salaryChange,
+  forcedCriticalType,
+  aiConfig,
+}: FinalizePipelineOptions): Promise<QuarterlyPipelineResult> {
+  const recentHistory = getRecentHistory(settledState.history);
+  const agentInput: AgentInput = {
+    state: settledState,
+    recentHistory,
+    maimaiActivity: collectMaimaiActivity(originalState),
+  };
+
+  const worldOutput = await runWorldAgent(agentInput, aiConfig);
+
+  const rawEventOutput = await runEventAgent(agentInput, worldOutput, aiConfig);
+  const worldValidatedEvents = validateEvents(rawEventOutput.events, worldOutput);
+  const npcValidatedEvents = validateEventNPCConsistency(
+    worldValidatedEvents,
+    settledState.npcs,
+  );
+  let eventOutput: EventAgentOutput = {
+    ...rawEventOutput,
+    events: npcValidatedEvents,
+  };
+
+  if (settledState.phase2Path === "executive") {
+    eventOutput = validateExecutiveEvents(eventOutput, settledState.npcs);
+  }
+
+  applyEventEffects(settledState, eventOutput);
+  applyMaimaiResults(settledState, eventOutput.maimaiResults);
+
+  const phoneReplyContext = buildPhoneReplyContext(settledState.phoneMessages);
+
+  const rawNPCOutput = await runNPCAgent(
+    agentInput,
+    worldOutput,
+    eventOutput,
+    playerActions,
+    phoneReplyContext,
+    aiConfig,
+  );
+  const npcOutput = validateNPCActions(rawNPCOutput, settledState.npcs);
+
+  applyNPCOutput(settledState, npcOutput);
+
+  settledState.world = {
+    economyCycle: worldOutput.economy,
+    industryTrends: worldOutput.trends,
+    companyStatus: worldOutput.companyStatus,
+  };
+
+  const allMessages = appendPhoneMessages(settledState, eventOutput, npcOutput);
 
   const narrativeOutput = await runNarrativeAgent(
     agentInput,
     worldOutput,
     eventOutput,
     npcOutput,
-    plan.actions,
+    playerActions,
     false,
     phoneReplyContext,
-    false,
+    undefined,
     aiConfig,
   );
 
-  for (const key of Object.keys(settledState.player) as Array<
-    keyof GameState["player"]
-  >) {
-    if (key === "money") {
-      continue;
-    }
-
-    const value = settledState.player[key];
-    settledState.player[key] = Math.max(0, Math.min(100, value));
-  }
-
-  for (const npc of settledState.npcs) {
-    npc.favor = Math.max(0, Math.min(100, npc.favor));
-  }
+  clampState(settledState);
 
   const eventTitles = npcValidatedEvents.map((event) => event.title);
   const npcChanges = npcOutput.npcActions.map(
@@ -202,34 +401,13 @@ export async function runQuarterlyPipeline(
   );
   settledState.history.push(summary);
 
-  let criticalChoices: CriticalChoice[] | undefined;
-  const criticalEvent = npcValidatedEvents.find(e => e.triggersCritical && e.criticalType);
-  if (criticalEvent && criticalEvent.criticalType) {
-    settledState.timeMode = "critical";
-    settledState.criticalPeriod = enterCriticalPeriod(criticalEvent.criticalType);
-    settledState.staminaRemaining = settledState.criticalPeriod.staminaPerDay;
-
-    const openingChoices = await runNarrativeAgent(
-      { state: settledState, recentHistory: agentInput.recentHistory },
-      worldOutput,
-      { events: [criticalEvent], phoneMessages: [] },
-      { npcActions: [], chatMessages: [] },
-      [],
-      true,
-      `事件触发了关键期：${criticalEvent.title}`,
-      true,
-      aiConfig,
-    );
-
-    if (openingChoices.choices) {
-      criticalChoices = validateChoices(
-        openingChoices.choices,
-        settledState.staminaRemaining,
-        settledState.criticalPeriod.type,
-        settledState.player
-      );
-    }
-  }
+  const criticalChoices = await maybeGenerateCriticalChoices(
+    settledState,
+    worldOutput,
+    eventOutput,
+    forcedCriticalType,
+    aiConfig,
+  );
 
   return {
     state: settledState,
@@ -238,8 +416,55 @@ export async function runQuarterlyPipeline(
     events: npcValidatedEvents,
     npcActions: npcOutput.npcActions,
     phoneMessages: allMessages,
-    performanceRating: engineResult.performanceRating,
-    salaryChange: engineResult.salaryChange,
+    performanceRating,
+    salaryChange,
     criticalChoices,
   };
+}
+
+export async function runExecutiveQuarterlyPipeline(
+  state: GameState,
+  plan: ExecutiveQuarterPlan,
+  aiConfig?: AIConfig,
+): Promise<QuarterlyPipelineResult> {
+  const beforeAttributes = { ...state.player };
+  const engineResult = settleExecutiveQuarter(state, plan);
+
+  return finalizePipeline({
+    originalState: state,
+    settledState: engineResult.state,
+    beforeAttributes,
+    playerActions: plan.actions,
+    forcedCriticalType:
+      engineResult.triggerCriticalType ??
+      (engineResult.triggerBoardReview ? "board_review" : null),
+    aiConfig,
+  });
+}
+
+export async function runQuarterlyPipeline(
+  state: GameState,
+  plan: QuarterPlan,
+  aiConfig?: AIConfig,
+): Promise<QuarterlyPipelineResult> {
+  if (state.phase2Path === "executive") {
+    return runExecutiveQuarterlyPipeline(
+      state,
+      plan as unknown as ExecutiveQuarterPlan,
+      aiConfig,
+    );
+  }
+
+  const beforeAttributes = { ...state.player };
+  const engineResult = settleQuarter(state, plan);
+
+  return finalizePipeline({
+    originalState: state,
+    settledState: engineResult.state,
+    beforeAttributes,
+    playerActions: plan.actions,
+    performanceRating: engineResult.performanceRating,
+    salaryChange: engineResult.salaryChange,
+    aiConfig,
+  });
 }

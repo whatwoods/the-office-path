@@ -74,6 +74,28 @@ describe("processAction", () => {
     expect(result.statChanges.network).toBe(2);
   });
 
+  it("triggers offer generation for successful interviews", () => {
+    const result = processAction(
+      baseAttributes,
+      { action: "job_interview" },
+      1,
+      () => 0.3,
+    );
+
+    expect(result.triggerOfferGeneration).toBe(true);
+  });
+
+  it("does not trigger offer generation when the roll misses", () => {
+    const result = processAction(
+      baseAttributes,
+      { action: "job_interview" },
+      1,
+      () => 0.6,
+    );
+
+    expect(result.triggerOfferGeneration).toBe(false);
+  });
+
   it("processes side_hustle income without getting caught", () => {
     const rng = () => 0.5;
     const result = processAction(baseAttributes, { action: "side_hustle" }, 1, rng);

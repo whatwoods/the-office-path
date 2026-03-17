@@ -12,6 +12,7 @@ function createInitialNPCs(): NPC[] {
       favor: 50,
       isActive: true,
       currentStatus: "在岗",
+      companyName: "星辰互联",
     },
     {
       id: "zhang_wei",
@@ -22,6 +23,7 @@ function createInitialNPCs(): NPC[] {
       favor: 50,
       isActive: true,
       currentStatus: "在岗",
+      companyName: "星辰互联",
     },
     {
       id: "li_xue",
@@ -32,6 +34,7 @@ function createInitialNPCs(): NPC[] {
       favor: 50,
       isActive: true,
       currentStatus: "在岗",
+      companyName: "星辰互联",
     },
     {
       id: "zhao_zong",
@@ -42,6 +45,7 @@ function createInitialNPCs(): NPC[] {
       favor: 40,
       isActive: true,
       currentStatus: "在岗",
+      companyName: "星辰互联",
     },
     {
       id: "xiao_mei",
@@ -52,13 +56,14 @@ function createInitialNPCs(): NPC[] {
       favor: 55,
       isActive: true,
       currentStatus: "在岗",
+      companyName: "星辰互联",
     },
   ];
 }
 
 export function createNewGame(): GameState {
   return {
-    version: "1.0",
+    version: "1.1",
     phase: 1,
     currentQuarter: 0,
     timeMode: "critical",
@@ -102,5 +107,11 @@ export function createNewGame(): GameState {
     },
     staminaRemaining: 3,
     founderSalary: null,
+    phase2Path: null,
+    executive: null,
+    maimaiPosts: [],
+    maimaiPostsThisQuarter: 0,
+    jobOffers: [],
+    jobHistory: [],
   };
 }

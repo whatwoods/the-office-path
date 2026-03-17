@@ -1,72 +1,89 @@
-import { create } from 'zustand'
-import type { GameState, PhoneApp } from '@/types/game'
-import type { QuarterPlan, CriticalChoice } from '@/types/actions'
-import type { GameEvent } from '@/types/events'
-import type { AIConfig } from '@/types/settings'
+import { create } from "zustand";
+
+import { executeJobHop } from "@/engine/job-hop";
 import {
-  saveGame as storageSave,
+  addPlayerComment,
+  addPlayerLike,
+  canPostMaimai,
+  createPlayerPost,
+} from "@/engine/maimai";
+import {
   loadGame as storageLoad,
-} from '@/save/storage'
-import type { SaveSlot } from '@/save/storage'
-import { useSettingsStore } from '@/store/settingsStore'
+  saveGame as storageSave,
+} from "@/save/storage";
+import type { SaveSlot } from "@/save/storage";
+import { useSettingsStore } from "@/store/settingsStore";
+import type { CriticalChoice, QuarterPlan } from "@/types/actions";
+import type { ExecutiveQuarterPlan, Phase2Path } from "@/types/executive";
+import type { GameEvent } from "@/types/events";
+import type { GameState, PhoneApp } from "@/types/game";
+import type { AIConfig } from "@/types/settings";
 
 interface PromotionInfo {
-  eligible: boolean
-  nextLevels: string[]
-  failReasons: string[]
+  eligible: boolean;
+  nextLevels: string[];
+  failReasons: string[];
 }
 
 interface PerformanceInfo {
-  rating: string
-  salaryChange: number
+  rating: string;
+  salaryChange: number;
 }
 
 function buildAIConfig(): { aiConfig: AIConfig } | {} {
-  const config = useSettingsStore.getState().getAIConfig()
-  return config ? { aiConfig: config } : {}
+  const config = useSettingsStore.getState().getAIConfig();
+  return config ? { aiConfig: config } : {};
+}
+
+function autoSaveIfEnabled(state: GameState): void {
+  if (useSettingsStore.getState().settings.gameplay.autoSave) {
+    storageSave(state, "auto");
+  }
 }
 
 interface GameStore {
-  // Core state
-  state: GameState | null
-  isLoading: boolean
-  error: string | null
+  state: GameState | null;
+  isLoading: boolean;
+  error: string | null;
 
-  // UI state
-  activePanel: 'attributes' | 'relationships' | 'phone'
-  activePhoneApp: PhoneApp | null
-  showSaveModal: boolean
-  narrativeQueue: string[]
-  promotionInfo: PromotionInfo | null
-  currentEvent: GameEvent | null
-  criticalChoices: CriticalChoice[]
-  showQuarterTransition: boolean
-  lastPerformance: PerformanceInfo | null
+  activePanel: "attributes" | "relationships" | "phone";
+  activePhoneApp: PhoneApp | null;
+  showSaveModal: boolean;
+  narrativeQueue: string[];
+  promotionInfo: PromotionInfo | null;
+  currentEvent: GameEvent | null;
+  criticalChoices: CriticalChoice[];
+  showQuarterTransition: boolean;
+  lastPerformance: PerformanceInfo | null;
 
-  // Actions
-  newGame: () => Promise<void>
-  submitQuarter: (plan: QuarterPlan) => Promise<void>
-  submitChoice: (choice: CriticalChoice) => Promise<void>
-  resignStartup: () => Promise<void>
-  refreshState: () => Promise<void>
-  saveGame: (slot: string) => void
-  loadGame: (slot: string) => void
-  setActivePanel: (panel: 'attributes' | 'relationships' | 'phone') => void
-  setActivePhoneApp: (app: PhoneApp | null) => void
-  setShowSaveModal: (show: boolean) => void
-  dismissCurrentEvent: () => void
-  dismissQuarterTransition: () => void
-  dismissEvent: () => void
-  dismissPerformance: () => void
-  replyToPhoneMessage: (messageId: string, reply: string) => void
-  clearError: () => void
+  newGame: () => Promise<void>;
+  submitQuarter: (plan: QuarterPlan | ExecutiveQuarterPlan) => Promise<void>;
+  submitChoice: (choice: CriticalChoice) => Promise<void>;
+  resignStartup: (path?: Phase2Path) => Promise<void>;
+  postOnMaimai: (content: string) => void;
+  likePost: (postId: string) => void;
+  commentOnPost: (postId: string, content: string) => void;
+  acceptOffer: (offerId: string) => Promise<void>;
+  ignoreOffer: (offerId: string) => void;
+  refreshState: () => Promise<void>;
+  saveGame: (slot: string) => void;
+  loadGame: (slot: string) => void;
+  setActivePanel: (panel: "attributes" | "relationships" | "phone") => void;
+  setActivePhoneApp: (app: PhoneApp | null) => void;
+  setShowSaveModal: (show: boolean) => void;
+  dismissCurrentEvent: () => void;
+  dismissQuarterTransition: () => void;
+  dismissEvent: () => void;
+  dismissPerformance: () => void;
+  replyToPhoneMessage: (messageId: string, reply: string) => void;
+  clearError: () => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
   state: null,
   isLoading: false,
   error: null,
-  activePanel: 'attributes',
+  activePanel: "attributes",
   activePhoneApp: null,
   showSaveModal: false,
   narrativeQueue: [],
@@ -77,17 +94,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
   lastPerformance: null,
 
   newGame: async () => {
-    set({ isLoading: true, error: null })
+    set({ isLoading: true, error: null });
     try {
-      const res = await fetch('/api/game/new', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/game/new", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...buildAIConfig() }),
-      })
-      const data = await res.json()
+      });
+      const data = await res.json();
       if (!res.ok) {
-        set({ error: data.error ?? '创建游戏失败', isLoading: false })
-        return
+        set({ error: data.error ?? "创建游戏失败", isLoading: false });
+        return;
       }
       set({
         state: data.state,
@@ -97,29 +114,29 @@ export const useGameStore = create<GameStore>((set, get) => ({
         currentEvent: null,
         showQuarterTransition: true,
         lastPerformance: null,
-      })
+      });
     } catch {
-      set({ error: '网络错误', isLoading: false })
+      set({ error: "网络错误", isLoading: false });
     }
   },
 
-  submitQuarter: async (plan: QuarterPlan) => {
-    const { state } = get()
-    if (!state) return
-    set({ isLoading: true, error: null })
+  submitQuarter: async (plan: QuarterPlan | ExecutiveQuarterPlan) => {
+    const { state } = get();
+    if (!state) return;
+    set({ isLoading: true, error: null });
     try {
-      const res = await fetch('/api/game/turn', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/game/turn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ state, plan, ...buildAIConfig() }),
-      })
-      const data = await res.json()
+      });
+      const data = await res.json();
       if (!res.ok) {
-        set({ error: data.error ?? '提交失败', isLoading: false })
-        return
+        set({ error: data.error ?? "提交失败", isLoading: false });
+        return;
       }
       const currentEvent =
-        data.events?.find((event: GameEvent) => event.triggersCritical) ?? null
+        data.events?.find((event: GameEvent) => event.triggersCritical) ?? null;
       set({
         state: data.state,
         isLoading: false,
@@ -133,30 +150,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
               salaryChange: data.salaryChange ?? 0,
             }
           : null,
-      })
-      if (useSettingsStore.getState().settings.gameplay.autoSave) {
-        storageSave(data.state, 'auto')
-      }
-      void get().refreshState()
+      });
+      autoSaveIfEnabled(data.state);
+      void get().refreshState();
     } catch {
-      set({ error: '网络错误', isLoading: false })
+      set({ error: "网络错误", isLoading: false });
     }
   },
 
   submitChoice: async (choice: CriticalChoice) => {
-    const { state } = get()
-    if (!state) return
-    set({ isLoading: true, error: null })
+    const { state } = get();
+    if (!state) return;
+    set({ isLoading: true, error: null });
     try {
-      const res = await fetch('/api/game/turn', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/game/turn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ state, choice, ...buildAIConfig() }),
-      })
-      const data = await res.json()
+      });
+      const data = await res.json();
       if (!res.ok) {
-        set({ error: data.error ?? '提交失败', isLoading: false })
-        return
+        set({ error: data.error ?? "提交失败", isLoading: false });
+        return;
       }
       set({
         state: data.state,
@@ -165,26 +180,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
         criticalChoices: data.nextChoices ?? [],
         currentEvent: null,
         showQuarterTransition: data.isComplete === true,
-      })
+      });
     } catch {
-      set({ error: '网络错误', isLoading: false })
+      set({ error: "网络错误", isLoading: false });
     }
   },
 
-  resignStartup: async () => {
-    const { state } = get()
-    if (!state) return
-    set({ isLoading: true, error: null })
+  resignStartup: async (path: Phase2Path = "startup") => {
+    const { state } = get();
+    if (!state) return;
+    set({ isLoading: true, error: null });
     try {
-      const res = await fetch('/api/game/resign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state, ...buildAIConfig() }),
-      })
-      const data = await res.json()
+      const res = await fetch("/api/game/resign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state, path, ...buildAIConfig() }),
+      });
+      const data = await res.json();
       if (!res.ok) {
-        set({ error: data.error ?? '创业切换失败', isLoading: false })
-        return
+        set({ error: data.error ?? "创业切换失败", isLoading: false });
+        return;
       }
       set({
         state: data.state,
@@ -194,22 +209,121 @@ export const useGameStore = create<GameStore>((set, get) => ({
         currentEvent: null,
         showQuarterTransition: true,
         lastPerformance: null,
-      })
+      });
     } catch {
-      set({ error: '网络错误', isLoading: false })
+      set({ error: "网络错误", isLoading: false });
     }
   },
 
-  refreshState: async () => {
-    const { state } = get()
-    if (!state) return
+  postOnMaimai: (content: string) => {
+    const { state } = get();
+    if (!state) return;
+
+    const trimmed = content.trim();
+    if (!trimmed) return;
+
+    const canPost = canPostMaimai(
+      state.maimaiPostsThisQuarter,
+      state.timeMode,
+      state.criticalPeriod?.type ?? null,
+    );
+    if (!canPost) {
+      set({ error: "当前阶段不能再发麦麦了" });
+      return;
+    }
+
+    const newPost = createPlayerPost(trimmed, state.currentQuarter);
+    set({
+      state: {
+        ...state,
+        maimaiPosts: [newPost, ...state.maimaiPosts],
+        maimaiPostsThisQuarter: state.maimaiPostsThisQuarter + 1,
+      },
+      error: null,
+    });
+  },
+
+  likePost: (postId: string) => {
+    const { state } = get();
+    if (!state) return;
+
+    set({
+      state: {
+        ...state,
+        maimaiPosts: state.maimaiPosts.map((post) =>
+          post.id === postId ? addPlayerLike(post) : post,
+        ),
+      },
+    });
+  },
+
+  commentOnPost: (postId: string, content: string) => {
+    const { state } = get();
+    if (!state) return;
+
+    const trimmed = content.trim();
+    if (!trimmed) return;
+
+    set({
+      state: {
+        ...state,
+        maimaiPosts: state.maimaiPosts.map((post) =>
+          post.id === postId ? addPlayerComment(post, trimmed) : post,
+        ),
+      },
+    });
+  },
+
+  acceptOffer: async (offerId: string) => {
+    const { state } = get();
+    if (!state) return;
+
+    const offer = state.jobOffers.find((candidate) => candidate.id === offerId);
+    if (!offer) {
+      set({ error: "Offer 不存在" });
+      return;
+    }
+
+    set({ isLoading: true, error: null });
     try {
-      const res = await fetch('/api/game/state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const nextState = executeJobHop(state, offer);
+      set({
+        state: nextState,
+        isLoading: false,
+        narrativeQueue: [`你接受了 ${offer.companyName} 的 offer，开始新的入职适应期。`],
+        criticalChoices: [],
+        currentEvent: null,
+        showQuarterTransition: true,
+        lastPerformance: null,
+      });
+      autoSaveIfEnabled(nextState);
+    } catch {
+      set({ error: "接受 offer 失败", isLoading: false });
+    }
+  },
+
+  ignoreOffer: (offerId: string) => {
+    const { state } = get();
+    if (!state) return;
+
+    set({
+      state: {
+        ...state,
+        jobOffers: state.jobOffers.filter((offer) => offer.id !== offerId),
+      },
+    });
+  },
+
+  refreshState: async () => {
+    const { state } = get();
+    if (!state) return;
+    try {
+      const res = await fetch("/api/game/state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ state }),
-      })
-      const data = await res.json()
+      });
+      const data = await res.json();
       if (res.ok && data.computed) {
         set({
           promotionInfo: {
@@ -217,7 +331,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             nextLevels: data.computed.promotionNextLevels,
             failReasons: data.computed.promotionFailReasons,
           },
-        })
+        });
       }
     } catch {
       // Silent fail for promotion check
@@ -225,16 +339,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
 
   saveGame: (slot: string) => {
-    const { state } = get()
-    if (!state) return
-    storageSave(state, slot as SaveSlot)
+    const { state } = get();
+    if (!state) return;
+    storageSave(state, slot as SaveSlot);
   },
 
   loadGame: (slot: string) => {
-    const loaded = storageLoad(slot as SaveSlot)
+    const loaded = storageLoad(slot as SaveSlot);
     if (!loaded) {
-      set({ error: '存档不存在' })
-      return
+      set({ error: "存档不存在" });
+      return;
     }
     set({
       state: loaded,
@@ -244,7 +358,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       criticalChoices: [],
       showQuarterTransition: false,
       lastPerformance: null,
-    })
+    });
   },
 
   setActivePanel: (panel) => set({ activePanel: panel }),
@@ -255,16 +369,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
   dismissEvent: () => set({ currentEvent: null }),
   dismissPerformance: () => set({ lastPerformance: null }),
   replyToPhoneMessage: (messageId, reply) => {
-    const { state } = get()
-    if (!state) return
+    const { state } = get();
+    if (!state) return;
     set({
       state: {
         ...state,
-        phoneMessages: state.phoneMessages.map(m =>
-          m.id === messageId ? { ...m, read: true, selectedReply: reply } : m,
+        phoneMessages: state.phoneMessages.map((message) =>
+          message.id === messageId
+            ? { ...message, read: true, selectedReply: reply }
+            : message,
         ),
       },
-    })
+    });
   },
   clearError: () => set({ error: null }),
-}))
+}));

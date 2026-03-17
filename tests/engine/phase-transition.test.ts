@@ -56,6 +56,46 @@ describe("transitionToPhase2", () => {
   });
 });
 
+describe("transitionToPhase2 with executive path", () => {
+  it("creates executive state and enters executive onboarding", () => {
+    const state = createNewGame();
+    state.job.level = "L8";
+    state.jobOffers = [
+      {
+        id: "1",
+        companyName: "test",
+        companyProfile: "test",
+        offeredLevel: "L8",
+        offeredSalary: 100000,
+        companyStatus: "stable",
+        expiresAtQuarter: 5,
+        negotiated: false,
+      },
+    ];
+
+    const result = transitionToPhase2(state, "executive");
+
+    expect(result.phase).toBe(2);
+    expect(result.phase2Path).toBe("executive");
+    expect(result.executive).not.toBeNull();
+    expect(result.executive?.stage).toBe("E1");
+    expect(result.company).toBeNull();
+    expect(result.criticalPeriod?.type).toBe("executive_onboarding");
+    expect(result.jobOffers).toEqual([]);
+  });
+
+  it("keeps the startup path behavior intact", () => {
+    const state = createNewGame();
+    state.job.level = "L6_tech";
+
+    const result = transitionToPhase2(state, "startup");
+
+    expect(result.phase2Path).toBe("startup");
+    expect(result.company).not.toBeNull();
+    expect(result.executive).toBeNull();
+  });
+});
+
 describe("createNewGame", () => {
   it("creates a valid initial game state in onboarding", () => {
     const game = createNewGame();

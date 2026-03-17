@@ -12,14 +12,40 @@ import type {
   NPCAgentOutput,
   WorldAgentOutput,
 } from "@/types/agents";
-import type { ActionAllocation } from "@/types/actions";
 import type { AIConfig } from "@/types/settings";
+
+type PromptAction = {
+  action: string;
+  target?: string;
+};
 
 function buildSystemPrompt(
   input: AgentInput,
   isCriticalPeriod: boolean,
   generateChoices: boolean = isCriticalPeriod,
 ): string {
+  if (input.state.phase2Path === "executive") {
+    const executive = input.state.executive;
+    const categories =
+      input.state.criticalPeriod
+        ? CRITICAL_PERIOD_CATEGORIES[input.state.criticalPeriod.type] ?? ["行动"]
+        : ["行动"];
+
+    return `你是一个职场模拟游戏的叙事者。玩家现在是公司高管（${executive?.stage}），正在公司权力中心博弈。
+
+叙事风格：
+- 描述公司政治、董事会动态、部门竞争
+- 引用高管属性（部门业绩: ${executive?.departmentPerformance ?? 0}/100, 董事会支持率: ${executive?.boardSupport ?? 0}/100）
+- 如果本季度有麦麦活动，将其后果编织进叙事
+- 关注权力博弈和战略决策的张力
+
+${isCriticalPeriod
+  ? `当前关键期：${input.state.criticalPeriod?.type}
+生成150-300字的每日叙事${generateChoices ? " + 3-4个情境选择" : ""}，选择必须属于以下类别：${categories.join("/")}
+每个选择需要结构化效果（对ExecutiveState和PlayerAttributes的影响）`
+  : "生成300-500字的季度叙事 + 一句话 narrativeSummary"}`;
+  }
+
   let prompt = `你是"打工之道"游戏的故事编剧（Narrative Agent）。
 你负责把所有发生的事情写成好看的故事。
 
@@ -80,7 +106,7 @@ function buildUserPrompt(
   worldContext: WorldAgentOutput,
   eventContext: EventAgentOutput,
   npcContext: NPCAgentOutput,
-  playerActions: ActionAllocation[],
+  playerActions: PromptAction[],
   playerContext?: string,
 ): string {
   const actions = playerActions
@@ -105,7 +131,7 @@ function buildUserPrompt(
     .map((entry) => `Q${entry.quarter}: ${entry.narrativeSummary}`)
     .join("\n");
 
-  return `世界环境：经济${worldContext.economy}，公司${worldContext.companyStatus}
+  let userPrompt = `世界环境：经济${worldContext.economy}，公司${worldContext.companyStatus}
 行业趋势：${worldContext.trends.join("、") || "无"}
 
 玩家行动：${actions || "无"}
@@ -120,6 +146,28 @@ ${history ? `最近历史：\n${history}` : ""}
 ${playerContext ? `\n关键期玩家选择：${playerContext}` : ""}
 
 请编织以上素材，生成本${input.state.timeMode === "critical" ? "天" : "季度"}的叙事。`;
+
+  if (input.state.executive) {
+    userPrompt += `\n\n## 高管状态
+阶段: ${input.state.executive.stage}
+部门业绩: ${input.state.executive.departmentPerformance}/100
+董事会支持率: ${input.state.executive.boardSupport}/100
+团队忠诚度: ${input.state.executive.teamLoyalty}/100
+政治资本: ${input.state.executive.politicalCapital}/100
+股价: ¥${input.state.executive.stockPrice}
+管辖部门数: ${input.state.executive.departmentCount}`;
+  }
+
+  if (eventContext.maimaiResults?.postResults?.length) {
+    userPrompt += `\n\n## 麦麦动态后果`;
+    for (const postResult of eventContext.maimaiResults.postResults) {
+      userPrompt += `\n- ${postResult.aiAnalysis}（传播等级: ${postResult.viralLevel}${
+        postResult.consequences.identityExposed ? "，身份被暴露！" : ""
+      }）`;
+    }
+  }
+
+  return userPrompt;
 }
 
 export async function runNarrativeAgent(
@@ -127,7 +175,7 @@ export async function runNarrativeAgent(
   worldContext: WorldAgentOutput,
   eventContext: EventAgentOutput,
   npcContext: NPCAgentOutput,
-  playerActions: ActionAllocation[],
+  playerActions: PromptAction[],
   isCriticalPeriod: boolean,
   playerContext?: string,
   generateChoices: boolean = isCriticalPeriod,
@@ -147,7 +195,7 @@ export async function runNarrativeAgent(
       npcContext,
       playerActions,
       playerContext,
-    )
+    ),
   });
 
   return output!;

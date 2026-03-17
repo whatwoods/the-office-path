@@ -1,4 +1,7 @@
 import type { CompanyState } from "./company";
+import type { ExecutiveState, Phase2Path } from "./executive";
+import type { JobOffer, PastJob } from "./job-offer";
+import type { MaimaiPost } from "./maimai";
 
 export interface PlayerAttributes {
   health: number;
@@ -75,6 +78,7 @@ export interface NPC {
   favor: number;
   isActive: boolean;
   currentStatus: string;
+  companyName: string;
 }
 
 export interface JobState {
@@ -133,7 +137,13 @@ export type CriticalPeriodType =
   | "job_negotiation"
   | "startup_launch"
   | "fundraising"
-  | "ipo_review";
+  | "ipo_review"
+  | "new_company_onboarding"
+  | "executive_onboarding"
+  | "board_review"
+  | "power_struggle"
+  | "major_decision"
+  | "power_transition";
 
 export interface CriticalPeriod {
   type: CriticalPeriodType;
@@ -179,6 +189,12 @@ export interface GameState {
   world: WorldState;
   staminaRemaining: number;
   founderSalary: number | null;
+  phase2Path: Phase2Path | null;
+  executive: ExecutiveState | null;
+  maimaiPosts: MaimaiPost[];
+  maimaiPostsThisQuarter: number;
+  jobOffers: JobOffer[];
+  jobHistory: PastJob[];
 }
 
 export type { CompanyState };
