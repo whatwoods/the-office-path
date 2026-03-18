@@ -21,11 +21,13 @@ import {
   runExecutiveQuarterlyPipeline,
   runQuarterlyPipeline,
 } from "@/ai/orchestration/quarterly";
+import { createRequestContext } from "@/lib/observability/request-context";
 import { createNewGame } from "@/engine/state";
 import type { QuarterPlan } from "@/types/actions";
 import type { ExecutiveQuarterPlan } from "@/types/executive";
 import type { GameState } from "@/types/game";
 import type { AIConfig } from "@/types/settings";
+import { captureObservabilityLogs } from "../../helpers/observability";
 
 const mockedWorld = vi.mocked(runWorldAgent);
 const mockedEvent = vi.mocked(runEventAgent);
@@ -141,6 +143,19 @@ describe("runQuarterlyPipeline", () => {
     await runQuarterlyPipeline(state, plan);
 
     expect(callOrder).toEqual(["world", "event", "npc", "narrative"]);
+  });
+
+  it("logs observed steps for the quarterly pipeline", async () => {
+    const logs = captureObservabilityLogs();
+    const ctx = createRequestContext("/api/game/turn", "POST");
+    const state = makeQuarterlyState();
+
+    await runQuarterlyPipeline(state, plan, undefined, ctx);
+
+    const parsed = logs.all();
+    expect(parsed.some((entry) => entry.step === "run_world_agent")).toBe(true);
+    expect(parsed.some((entry) => entry.step === "run_narrative_agent")).toBe(true);
+    logs.restore();
   });
 
   it("returns combined result with narrative and updated state", async () => {

@@ -17,9 +17,11 @@ import { runEventAgent } from "@/ai/agents/event";
 import { runNarrativeAgent } from "@/ai/agents/narrative";
 import { runNPCAgent } from "@/ai/agents/npc";
 import { runCriticalDayPipeline } from "@/ai/orchestration/critical";
+import { createRequestContext } from "@/lib/observability/request-context";
 import { createNewGame } from "@/engine/state";
 import type { CriticalChoice } from "@/types/actions";
 import type { AIConfig } from "@/types/settings";
+import { captureObservabilityLogs } from "../../helpers/observability";
 
 const mockedNPC = vi.mocked(runNPCAgent);
 const mockedEvent = vi.mocked(runEventAgent);
@@ -167,6 +169,26 @@ describe("runCriticalDayPipeline", () => {
     await runCriticalDayPipeline(state, choice);
 
     expect(callOrder).toEqual(["npc", "event", "narrative"]);
+  });
+
+  it("logs observed steps for the critical pipeline", async () => {
+    const logs = captureObservabilityLogs();
+    const ctx = createRequestContext("/api/game/turn", "POST");
+    const state = createNewGame();
+    const choice: CriticalChoice = {
+      choiceId: "a",
+      label: "A",
+      staminaCost: 1,
+      effects: {},
+      category: "学习",
+    };
+
+    await runCriticalDayPipeline(state, choice, undefined, ctx);
+
+    const parsed = logs.all();
+    expect(parsed.some((entry) => entry.step === "settle_critical_day")).toBe(true);
+    expect(parsed.some((entry) => entry.step === "run_event_agent")).toBe(true);
+    logs.restore();
   });
 
   it("threads aiConfig through critical-day agents", async () => {

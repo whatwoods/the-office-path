@@ -8,6 +8,8 @@ import {
   createEmptyAIUsageSummary,
   type AIUsageSummary,
 } from "@/lib/aiUsage";
+import type { RequestContext } from "@/lib/observability/request-context";
+import { withObservedStep } from "@/lib/observability/timed";
 import { buildPhoneReplyContext } from "@/ai/orchestration/phone-context";
 import { applyStatChanges } from "@/engine/attributes";
 import { settleCriticalDay } from "@/engine/critical-day";
@@ -65,17 +67,35 @@ function createPhoneMessage(
   };
 }
 
+async function observeStep<T>(
+  ctx: RequestContext | undefined,
+  step: string,
+  fn: () => Promise<T> | T,
+  metadata?: Record<string, unknown>,
+): Promise<T> {
+  if (!ctx) {
+    return await fn();
+  }
+
+  return withObservedStep(ctx, step, fn, metadata ? { metadata } : undefined);
+}
+
 export async function runCriticalDayPipeline(
   state: GameState,
   choice: CriticalChoice,
   aiConfig?: AIConfig,
+  ctx?: RequestContext,
 ): Promise<CriticalDayPipelineResult> {
   const aiUsage = createEmptyAIUsageSummary();
   const collectUsage = createAIUsageCollector(aiUsage);
-  const engineResult = settleCriticalDay(state, choice);
+  const engineResult = await observeStep(ctx, "settle_critical_day", () =>
+    settleCriticalDay(state, choice),
+  );
   const settledState = engineResult.state;
 
-  const storyState = buildCriticalStoryState(state, settledState, choice);
+  const storyState = await observeStep(ctx, "build_story_state", () =>
+    buildCriticalStoryState(state, settledState, choice),
+  );
   const recentHistory = getRecentHistory(storyState.history);
   const agentInput: AgentInput = { state: storyState, recentHistory };
 
@@ -93,16 +113,26 @@ export async function runCriticalDayPipeline(
     phoneReplyContext,
   ].filter(Boolean).join('\n');
 
-  const rawNPCOutput = await runNPCAgent(
-    agentInput,
-    worldContext,
-    { events: [], phoneMessages: [] },
-    [],
-    playerContext,
-    aiConfig,
-    collectUsage,
+  const rawNPCOutput = await observeStep(
+    ctx,
+    "run_npc_agent",
+    () =>
+      runNPCAgent(
+        agentInput,
+        worldContext,
+        { events: [], phoneMessages: [] },
+        [],
+        playerContext,
+        aiConfig,
+        collectUsage,
+      ),
+    {
+      currentDay: storyState.criticalPeriod?.currentDay ?? null,
+    },
   );
-  const npcOutput = validateNPCActions(rawNPCOutput, settledState.npcs);
+  const npcOutput = await observeStep(ctx, "validate_npc_actions", () =>
+    validateNPCActions(rawNPCOutput, settledState.npcs),
+  );
 
   for (const action of npcOutput.npcActions) {
     const npc = settledState.npcs.find((candidate) => candidate.name === action.npcName);
@@ -111,18 +141,25 @@ export async function runCriticalDayPipeline(
     }
   }
 
-  const eventOutput: EventAgentOutput = await runEventAgent(
-    agentInput,
-    worldContext,
-    aiConfig,
-    collectUsage,
+  const eventOutput: EventAgentOutput = await observeStep(
+    ctx,
+    "run_event_agent",
+    () =>
+      runEventAgent(
+        agentInput,
+        worldContext,
+        aiConfig,
+        collectUsage,
+      ),
   );
 
-  for (const event of eventOutput.events) {
-    if (event.statChanges) {
-      settledState.player = applyStatChanges(settledState.player, event.statChanges);
+  await observeStep(ctx, "apply_event_effects", () => {
+    for (const event of eventOutput.events) {
+      if (event.statChanges) {
+        settledState.player = applyStatChanges(settledState.player, event.statChanges);
+      }
     }
-  }
+  });
 
   const allMessages: Array<{ app: PhoneApp; content: string; sender?: string }> = [
     ...eventOutput.phoneMessages,
@@ -133,33 +170,45 @@ export async function runCriticalDayPipeline(
     })),
   ];
 
-  for (const message of allMessages) {
-    settledState.phoneMessages.push(
-      createPhoneMessage(settledState.currentQuarter, message),
-    );
-  }
+  await observeStep(ctx, "append_phone_messages", () => {
+    for (const message of allMessages) {
+      settledState.phoneMessages.push(
+        createPhoneMessage(settledState.currentQuarter, message),
+      );
+    }
+  });
 
   const isCriticalStill = !engineResult.isComplete;
-  const narrativeOutput = await runNarrativeAgent(
-    agentInput,
-    worldContext,
-    eventOutput,
-    npcOutput,
-    [],
-    true,
-    playerContext,
-    isCriticalStill,
-    aiConfig,
-    collectUsage,
+  const narrativeOutput = await observeStep(
+    ctx,
+    "run_narrative_agent",
+    () =>
+      runNarrativeAgent(
+        agentInput,
+        worldContext,
+        eventOutput,
+        npcOutput,
+        [],
+        true,
+        playerContext,
+        isCriticalStill,
+        aiConfig,
+        collectUsage,
+      ),
+    {
+      isCriticalStill,
+    },
   );
 
   let nextChoices: CriticalChoice[] | undefined;
   if (isCriticalStill && narrativeOutput.choices && settledState.criticalPeriod) {
-    nextChoices = validateChoices(
-      narrativeOutput.choices,
-      settledState.staminaRemaining,
-      settledState.criticalPeriod.type as CriticalPeriodType,
-      settledState.player,
+    nextChoices = await observeStep(ctx, "validate_next_choices", () =>
+      validateChoices(
+        narrativeOutput.choices,
+        settledState.staminaRemaining,
+        settledState.criticalPeriod!.type as CriticalPeriodType,
+        settledState.player,
+      ),
     );
   }
 
