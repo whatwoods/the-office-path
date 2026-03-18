@@ -234,12 +234,15 @@ export async function runCriticalDayPipeline(
   );
 
   let nextChoices: CriticalChoice[] | undefined;
-  if (isCriticalStill && narrativeOutput.choices && settledState.criticalPeriod) {
+  const narrativeChoices = narrativeOutput.choices;
+  const criticalPeriod = settledState.criticalPeriod;
+
+  if (isCriticalStill && narrativeChoices && criticalPeriod) {
     nextChoices = await observeStep(ctx, "validate_next_choices", () =>
       validateChoices(
-        narrativeOutput.choices,
+        narrativeChoices,
         settledState.staminaRemaining,
-        settledState.criticalPeriod!.type as CriticalPeriodType,
+        criticalPeriod.type as CriticalPeriodType,
         settledState.player,
       ),
     );

@@ -5,6 +5,7 @@ import { canStartup, transitionToPhase2 } from "@/engine/phase-transition";
 import { createAIUsageCollector, createEmptyAIUsageSummary } from "@/lib/aiUsage";
 import { createRequestContext } from "@/lib/observability/request-context";
 import { withObservedStep } from "@/lib/observability/timed";
+import type { CriticalChoice } from "@/types/actions";
 import type { AgentInput } from "@/types/agents";
 import type { Phase2Path } from "@/types/executive";
 import type { CriticalPeriodType, GameState } from "@/types/game";
@@ -92,13 +93,16 @@ export async function POST(request: Request) {
       },
     );
 
-    let criticalChoices;
-    if (narrativeOutput.choices && newState.criticalPeriod) {
+    let criticalChoices: CriticalChoice[] | undefined;
+    const narrativeChoices = narrativeOutput.choices;
+    const criticalPeriod = newState.criticalPeriod;
+
+    if (narrativeChoices && criticalPeriod) {
       criticalChoices = await withObservedStep(ctx, "validate_critical_choices", async () =>
         validateChoices(
-          narrativeOutput.choices,
+          narrativeChoices,
           newState.staminaRemaining,
-          newState.criticalPeriod!.type as CriticalPeriodType,
+          criticalPeriod.type as CriticalPeriodType,
           newState.player,
         ),
       );

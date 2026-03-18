@@ -4,6 +4,7 @@ import { createRequestContext } from "@/lib/observability/request-context";
 import { withObservedStep } from "@/lib/observability/timed";
 import { runNarrativeAgent } from "@/ai/agents/narrative";
 import { validateChoices } from "@/ai/orchestration/conflict";
+import type { CriticalChoice } from "@/types/actions";
 import type { AgentInput } from "@/types/agents";
 import type { CriticalPeriodType, MajorType } from "@/types/game";
 import type { AIConfig } from "@/types/settings";
@@ -62,13 +63,16 @@ export async function POST(request: Request) {
       },
     );
 
-    let criticalChoices;
-    if (narrativeOutput.choices && state.criticalPeriod) {
+    let criticalChoices: CriticalChoice[] | undefined;
+    const narrativeChoices = narrativeOutput.choices;
+    const criticalPeriod = state.criticalPeriod;
+
+    if (narrativeChoices && criticalPeriod) {
       criticalChoices = await withObservedStep(ctx, "validate_critical_choices", async () =>
         validateChoices(
-          narrativeOutput.choices,
+          narrativeChoices,
           state.staminaRemaining,
-          state.criticalPeriod!.type as CriticalPeriodType,
+          criticalPeriod.type as CriticalPeriodType,
           state.player,
         ),
       );

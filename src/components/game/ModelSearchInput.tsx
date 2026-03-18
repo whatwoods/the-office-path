@@ -92,8 +92,10 @@ export function ModelSearchInput({
         aria-label={label}
         aria-autocomplete="list"
         aria-controls={listboxId}
+        aria-haspopup="listbox"
         aria-expanded={isOpen && filteredOptions.length > 0}
         className="pixel-border-light w-full bg-[var(--pixel-bg-light)] px-3 py-2 text-sm text-[var(--pixel-text)]"
+        role="combobox"
         type="search"
         value={inputValue}
         placeholder="model-id"
