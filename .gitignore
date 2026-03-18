@@ -42,3 +42,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# claude code
+.claude/settings.json
+
+# superpowers brainstorm artifacts
+.superpowers/brainstorm/
+
+# output / logs
+/output/

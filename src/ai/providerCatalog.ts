@@ -88,7 +88,7 @@ export const PROVIDER_CATALOG: Record<AIProvider, ProviderCatalogEntry> = {
     label: "龙猫",
     kind: "openai-compatible",
     envApiKey: "LONGCAT_API_KEY",
-    defaultBaseUrl: "https://api.longcat.chat/v1",
+    defaultBaseUrl: "https://api.longcat.chat/openai/v1",
     defaultModels: {
       world: "longcat-flash-chat",
       event: "longcat-flash-chat",
