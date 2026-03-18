@@ -127,4 +127,47 @@ describe("runNPCAgent", () => {
     const call = mockedGenerateText.mock.calls[0][0] as { prompt: string };
     expect(call.prompt).toContain("玩家选择了：认真听培训（学习）");
   });
+
+  it("uses deterministic JSON-only settings for structured output", async () => {
+    mockedGenerateText.mockResolvedValueOnce({
+      output: { npcActions: [], chatMessages: [] },
+    } as never);
+
+    await runNPCAgent(makeInput(), worldContext, eventContext, playerActions);
+
+    const call = mockedGenerateText.mock.calls[0][0] as {
+      system: string;
+      temperature?: number;
+    };
+    expect(call.temperature).toBe(0);
+    expect(call.system).toContain("只返回单个 JSON 对象");
+  });
+
+  it("spells out the exact NPC schema fields in the system prompt", async () => {
+    mockedGenerateText.mockResolvedValueOnce({
+      output: { npcActions: [], chatMessages: [] },
+    } as never);
+
+    await runNPCAgent(makeInput(), worldContext, eventContext, playerActions);
+
+    const call = mockedGenerateText.mock.calls[0][0] as { system: string };
+    expect(call.system).toContain("npcActions");
+    expect(call.system).toContain("chatMessages");
+    expect(call.system).toContain("favorChange");
+    expect(call.system).toContain("reason");
+    expect(call.system).toContain("app");
+    expect(call.system).toContain("sender");
+  });
+
+  it("spells out chat app enum ids instead of display labels", async () => {
+    mockedGenerateText.mockResolvedValueOnce({
+      output: { npcActions: [], chatMessages: [] },
+    } as never);
+
+    await runNPCAgent(makeInput(), worldContext, eventContext, playerActions);
+
+    const call = mockedGenerateText.mock.calls[0][0] as { system: string };
+    expect(call.system).toContain("dingding");
+    expect(call.system).toContain("xiaoxin");
+  });
 });

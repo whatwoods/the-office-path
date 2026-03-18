@@ -175,4 +175,106 @@ describe("runNarrativeAgent", () => {
     expect(call.system).toContain("不要生成choices");
     expect(call.prompt).toContain("完成最后一天");
   });
+
+  it("uses deterministic JSON-only settings for structured output", async () => {
+    mockedGenerateText.mockResolvedValueOnce({
+      output: { narrative: "test" },
+    } as never);
+
+    await runNarrativeAgent(
+      makeInput(),
+      worldCtx,
+      eventCtx,
+      npcCtx,
+      actions,
+      false,
+    );
+
+    const call = mockedGenerateText.mock.calls[0][0] as {
+      system: string;
+      temperature?: number;
+    };
+    expect(call.temperature).toBe(0);
+    expect(call.system).toContain("只返回单个 JSON 对象");
+  });
+
+  it("spells out the exact narrative schema fields in the system prompt", async () => {
+    mockedGenerateText.mockResolvedValueOnce({
+      output: {
+        narrative: "test",
+        choices: [
+          {
+            choiceId: "onboarding_d1_a",
+            label: "认真听培训",
+            staminaCost: 1,
+            effects: { statChanges: { professional: 1 } },
+            category: "学习",
+          },
+        ],
+      },
+    } as never);
+
+    await runNarrativeAgent(
+      makeInput(),
+      worldCtx,
+      eventCtx,
+      npcCtx,
+      actions,
+      true,
+    );
+
+    const call = mockedGenerateText.mock.calls[0][0] as { system: string };
+    expect(call.system).toContain("narrative");
+    expect(call.system).toContain("narrativeSummary");
+    expect(call.system).toContain("choices");
+  });
+
+  it("spells out valid choice effect keys in the system prompt", async () => {
+    mockedGenerateText.mockResolvedValueOnce({
+      output: {
+        narrative: "test",
+        choices: [
+          {
+            choiceId: "onboarding_d1_a",
+            label: "认真听培训",
+            staminaCost: 1,
+            effects: { statChanges: { professional: 1 } },
+            category: "学习",
+          },
+        ],
+      },
+    } as never);
+
+    await runNarrativeAgent(
+      makeInput(),
+      worldCtx,
+      eventCtx,
+      npcCtx,
+      actions,
+      true,
+    );
+
+    const call = mockedGenerateText.mock.calls[0][0] as { system: string };
+    expect(call.system).toContain("professional");
+    expect(call.system).toContain("communication");
+    expect(call.system).toContain("riskEvent");
+    expect(call.system).toContain("probability");
+  });
+
+  it("requires choices during active critical periods", async () => {
+    mockedGenerateText.mockResolvedValueOnce({
+      output: { narrative: "只有叙事，没有选项" },
+    } as never);
+
+    await expect(
+      runNarrativeAgent(
+        makeInput(),
+        worldCtx,
+        eventCtx,
+        npcCtx,
+        actions,
+        true,
+      ),
+    ).rejects.toThrow("Narrative agent must return choices during active critical periods");
+  });
 });

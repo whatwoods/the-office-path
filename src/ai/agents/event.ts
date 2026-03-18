@@ -41,6 +41,17 @@ const OFFER_INSTRUCTIONS = `
 将 Offer 放在 phoneMessages 中，app 为 "hrzhipin"。
 `;
 
+const STRICT_JSON_INSTRUCTIONS = `
+
+结构化输出要求：
+- 只返回单个 JSON 对象
+- 不要输出 markdown、标题、分隔线、解释、额外说明
+- 顶层字段只能使用 events、phoneMessages、maimaiResults
+- events 中的每一项必须严格使用 schema 字段，例如 type、title、description、severity、triggersCritical
+- phoneMessages 中的每一项必须使用 app、content，sender 可选
+- app 必须使用 schema 的英文枚举值，例如 dingding、maimai、jinritiaotiao、hrzhipin，不要写中文标签
+`;
+
 function buildSystemPrompt(input: AgentInput): string {
   const phase = input.state.phase;
   const quarter = input.state.currentQuarter;
@@ -80,7 +91,7 @@ function buildSystemPrompt(input: AgentInput): string {
 - 危机事件（低频高影响）：合伙人分歧、大客户流失、现金流断裂`;
   }
 
-  prompt += `${MAIMAI_INSTRUCTIONS}\n${OFFER_INSTRUCTIONS}`;
+  prompt += `${MAIMAI_INSTRUCTIONS}\n${OFFER_INSTRUCTIONS}\n${STRICT_JSON_INSTRUCTIONS}`;
 
   return prompt;
 }
@@ -162,6 +173,7 @@ export async function runEventAgent(
       aiConfig?.baseUrl,
     ),
     output: Output.object({ schema: EventAgentOutputSchema }),
+    temperature: 0,
     system: buildSystemPrompt(input),
     prompt: buildUserPrompt(input, worldContext),
   });

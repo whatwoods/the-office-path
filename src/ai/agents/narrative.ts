@@ -19,6 +19,17 @@ type PromptAction = {
   target?: string;
 };
 
+const STRICT_JSON_INSTRUCTIONS = `
+
+结构化输出要求：
+- 只返回单个 JSON 对象
+- 不要直接输出正文、markdown、标题、分隔线、解释、额外说明
+- 顶层字段只能使用 narrative、narrativeSummary、choices
+- 故事正文必须放在 narrative 字段里
+- 季度模式可返回 narrative + narrativeSummary，不要返回 choices
+- 关键期模式必须返回 narrative；是否返回 choices 由当前指令决定
+`;
+
 function buildSystemPrompt(
   input: AgentInput,
   isCriticalPeriod: boolean,
@@ -42,8 +53,10 @@ function buildSystemPrompt(
 ${isCriticalPeriod
   ? `当前关键期：${input.state.criticalPeriod?.type}
 生成150-300字的每日叙事${generateChoices ? " + 3-4个情境选择" : ""}，选择必须属于以下类别：${categories.join("/")}
-每个选择需要结构化效果（对ExecutiveState和PlayerAttributes的影响）`
-  : "生成300-500字的季度叙事 + 一句话 narrativeSummary"}`;
+每个选择需要结构化效果（对ExecutiveState和PlayerAttributes的影响）
+返回格式：${generateChoices ? '{"narrative":"...", "choices":[...]}' : '{"narrative":"..."}'}`
+  : '生成300-500字的季度叙事 + 一句话 narrativeSummary\n返回格式：{"narrative":"...", "narrativeSummary":"..."}'}
+${STRICT_JSON_INSTRUCTIONS}`;
   }
 
   let prompt = `你是"打工之道"游戏的故事编剧（Narrative Agent）。
@@ -79,15 +92,29 @@ ${isCriticalPeriod
    - label: 选项显示文本
    - staminaCost: 体力消耗（1-2点，不能超过剩余体力${input.state.staminaRemaining}点）
    - effects: 结构化效果（statChanges, npcFavorChanges, riskEvent）
+     - statChanges 只允许使用这些属性键：health、professional、communication、management、network、mood、money、reputation
+     - riskEvent 如存在，必须是对象，包含 probability、description、statChanges；如果没有风险事件，就省略 riskEvent
    - category: 必须是以下之一：${categories.join("、")}
+   - choices 数组在当前关键期是必填字段，不允许省略
 
 选项设计原则：
 - 每个选项有不同的策略倾向和风险收益权衡
 - 至少一个低风险选项、一个高收益高风险选项
-- 效果数值要合理（属性变化±1~5，好感变化±5~15）`;
+- 效果数值要合理（属性变化±1~5，好感变化±5~15）
+
+返回格式：
+{
+  "narrative": "当天叙事正文",
+  "choices": [...]
+}`;
     } else {
       prompt += `
-2. 今天是该关键期的最后一天，只生成当天叙事，不要生成choices。`;
+2. 今天是该关键期的最后一天，只生成当天叙事，不要生成choices。
+
+返回格式：
+{
+  "narrative": "当天叙事正文"
+}`;
     }
   } else {
     prompt += `
@@ -95,10 +122,16 @@ ${isCriticalPeriod
 你需要：
 1. 生成季度叙事总结（300-500字），将玩家行动、事件和NPC反应编织成一段连贯的故事
 2. 生成narrativeSummary：一句话总结本季度核心事件（用于历史记录）
-不需要生成choices（季度模式没有选择卡片）。`;
+不需要生成choices（季度模式没有选择卡片）。
+
+返回格式：
+{
+  "narrative": "季度叙事正文",
+  "narrativeSummary": "一句话总结"
+}`;
   }
 
-  return prompt;
+  return `${prompt}\n\n${STRICT_JSON_INSTRUCTIONS}`;
 }
 
 function buildUserPrompt(
@@ -188,6 +221,7 @@ export async function runNarrativeAgent(
       aiConfig?.baseUrl,
     ),
     output: Output.object({ schema: NarrativeAgentOutputSchema }),
+    temperature: 0,
     system: buildSystemPrompt(input, isCriticalPeriod, generateChoices),
     prompt: buildUserPrompt(
       input,
@@ -198,6 +232,10 @@ export async function runNarrativeAgent(
       playerContext,
     ),
   });
+
+  if (isCriticalPeriod && generateChoices && !output?.choices?.length) {
+    throw new Error("Narrative agent must return choices during active critical periods");
+  }
 
   return output!;
 }

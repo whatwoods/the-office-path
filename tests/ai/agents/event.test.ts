@@ -79,4 +79,36 @@ describe("runEventAgent", () => {
     const call = mockedGenerateText.mock.calls[0][0] as { prompt: string };
     expect(call.prompt).toContain("20");
   });
+
+  it("uses deterministic JSON-only settings for structured output", async () => {
+    mockedGenerateText.mockResolvedValueOnce({
+      output: { events: [], phoneMessages: [] },
+    } as never);
+
+    await runEventAgent(makeInput(), worldContext);
+
+    const call = mockedGenerateText.mock.calls[0][0] as {
+      system: string;
+      temperature?: number;
+    };
+    expect(call.temperature).toBe(0);
+    expect(call.system).toContain("只返回单个 JSON 对象");
+  });
+
+  it("spells out the exact event schema fields and app enum ids", async () => {
+    mockedGenerateText.mockResolvedValueOnce({
+      output: { events: [], phoneMessages: [] },
+    } as never);
+
+    await runEventAgent(makeInput(), worldContext);
+
+    const call = mockedGenerateText.mock.calls[0][0] as { system: string };
+    expect(call.system).toContain("events");
+    expect(call.system).toContain("phoneMessages");
+    expect(call.system).toContain("app");
+    expect(call.system).toContain("sender");
+    expect(call.system).toContain("content");
+    expect(call.system).toContain("dingding");
+    expect(call.system).toContain("maimai");
+  });
 });

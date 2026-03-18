@@ -2,10 +2,16 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@ai-sdk/openai", () => ({
   createOpenAI: vi.fn((config?: { baseURL?: string; name?: string }) => {
-    const provider = (modelId: string) => ({
+    const provider = Object.assign((modelId: string) => ({
       modelId,
       provider: config?.name ?? "openai",
       baseURL: config?.baseURL,
+    }), {
+      chat: (modelId: string) => ({
+        modelId,
+        provider: `${config?.name ?? "openai"}.chat`,
+        baseURL: config?.baseURL,
+      }),
     });
     return provider;
   }),
@@ -82,7 +88,7 @@ describe("getModel with dynamic API key", () => {
 
     expect(model).toBeDefined();
     expect(model).toHaveProperty("modelId", "office-custom-model");
-    expect(model).toHaveProperty("provider", "custom");
+    expect(model).toHaveProperty("provider", "custom.chat");
     expect(model).toHaveProperty("baseURL", "https://custom.provider");
     expect(vi.mocked(createOpenAI)).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -91,6 +97,14 @@ describe("getModel with dynamic API key", () => {
         name: "custom",
       }),
     );
+  });
+
+  it("uses chat completions for longcat models", () => {
+    const model = getModel("longcat:LongCat-Flash-Lite", "ak-longcat-123");
+
+    expect(model).toBeDefined();
+    expect(model).toHaveProperty("modelId", "LongCat-Flash-Lite");
+    expect(model).toHaveProperty("provider", "longcat.chat");
   });
 
   it("falls back to the provider default base URL when dynamicBaseUrl is blank", () => {

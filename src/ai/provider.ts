@@ -35,11 +35,19 @@ function createProvider(
     });
   }
 
-  return createOpenAI({
+  const openAICompatibleProvider = createOpenAI({
     apiKey,
     baseURL: baseUrl,
     name: providerName,
   });
+
+  // Third-party OpenAI-compatible providers often implement chat completions
+  // without the newer /responses endpoint that the default model uses.
+  if (metadata.kind === "openai-compatible" && providerName !== "openai") {
+    return (modelId) => openAICompatibleProvider.chat(modelId);
+  }
+
+  return openAICompatibleProvider;
 }
 
 const providers = Object.fromEntries(

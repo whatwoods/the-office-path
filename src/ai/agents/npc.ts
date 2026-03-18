@@ -26,6 +26,19 @@ const COMPANY_TRANSITION_INSTRUCTIONS = `
 当生成新NPC时，使用 newNpcs 字段返回完整NPC对象，包含 companyName 字段设为新公司名。
 `;
 
+const STRICT_JSON_INSTRUCTIONS = `
+
+结构化输出要求：
+- 只返回单个 JSON 对象
+- 不要输出 markdown、标题、分隔线、解释、额外说明
+- 所有字段必须严格遵守 schema，缺失字段使用空数组或省略可选字段
+- 顶层字段只能使用 npcActions、chatMessages、newNpcs、departedNpcs
+- npcActions 中的每一项都必须包含 npcName、action、favorChange、reason；dialogue 可选
+- chatMessages 中的每一项都必须包含 app、sender、content；replyOptions 可选
+- app 必须使用 schema 的英文枚举值，例如 xiaoxin、dingding、maimai，不要写成“小信”或“叮叮”这类中文标签
+- 不要使用 reaction、messages、from、type 这类未定义字段
+`;
+
 function buildSystemPrompt(input: AgentInput): string {
   const phase = input.state.phase;
   const quarter = input.state.currentQuarter;
@@ -65,7 +78,7 @@ function buildSystemPrompt(input: AgentInput): string {
 前同事可能转变为以上任何角色，根据其性格和与玩家的关系决定新角色。`;
   }
 
-  prompt += `\n${COMPANY_TRANSITION_INSTRUCTIONS}`;
+  prompt += `\n${COMPANY_TRANSITION_INSTRUCTIONS}\n${STRICT_JSON_INSTRUCTIONS}`;
 
   return prompt;
 }
@@ -145,6 +158,7 @@ export async function runNPCAgent(
       aiConfig?.baseUrl,
     ),
     output: Output.object({ schema: NPCAgentOutputSchema }),
+    temperature: 0,
     system: buildSystemPrompt(input),
     prompt: buildUserPrompt(
       input,
