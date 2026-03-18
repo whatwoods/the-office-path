@@ -1,6 +1,7 @@
 import { generateText, Output } from "ai";
 
 import { type AIUsageCollector, normalizeAIUsage } from "@/lib/aiUsage";
+import type { RequestContext } from "@/lib/observability/request-context";
 import { getModel, resolveAgentModel } from "@/ai/provider";
 import {
   CRITICAL_PERIOD_CATEGORIES,
@@ -228,36 +229,72 @@ export async function runNarrativeAgent(
   generateChoices: boolean = isCriticalPeriod,
   aiConfig?: AIConfig,
   onUsage?: AIUsageCollector,
+  ctx?: RequestContext,
 ): Promise<NarrativeAgentOutput> {
   const modelSpec = resolveAgentModel("narrative", aiConfig);
-  const result = await generateText({
-    model: getModel(
-      modelSpec,
-      aiConfig?.apiKey,
-      aiConfig?.baseUrl,
-    ),
-    output: Output.object({ schema: NarrativeAgentOutputSchema }),
-    temperature: 0,
-    system: buildSystemPrompt(input, isCriticalPeriod, generateChoices),
-    prompt: buildUserPrompt(
-      input,
-      worldContext,
-      eventContext,
-      npcContext,
-      playerActions,
-      playerContext,
-    ),
-  });
-
-  onUsage?.({
-    agent: "narrative",
+  const provider = modelSpec.split(":")[0];
+  const startedAt = Date.now();
+  ctx?.log.info("step.start", "narrative agent started", {
+    step: "run_narrative_agent",
     model: modelSpec,
-    ...normalizeAIUsage(result.usage),
+    provider,
   });
 
-  if (isCriticalPeriod && generateChoices && !result.output?.choices?.length) {
-    throw new Error("Narrative agent must return choices during active critical periods");
-  }
+  try {
+    const result = await generateText({
+      model: getModel(
+        modelSpec,
+        aiConfig?.apiKey,
+        aiConfig?.baseUrl,
+      ),
+      output: Output.object({ schema: NarrativeAgentOutputSchema }),
+      temperature: 0,
+      system: buildSystemPrompt(input, isCriticalPeriod, generateChoices),
+      prompt: buildUserPrompt(
+        input,
+        worldContext,
+        eventContext,
+        npcContext,
+        playerActions,
+        playerContext,
+      ),
+    });
+    const usage = normalizeAIUsage(result.usage);
 
-  return result.output!;
+    onUsage?.({
+      agent: "narrative",
+      model: modelSpec,
+      ...usage,
+    });
+
+    if (isCriticalPeriod && generateChoices && !result.output?.choices?.length) {
+      throw new Error("Narrative agent must return choices during active critical periods");
+    }
+
+    ctx?.log.info("step.finish", "narrative agent finished", {
+      step: "run_narrative_agent",
+      durationMs: Date.now() - startedAt,
+      model: modelSpec,
+      provider,
+      aiUsage: {
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        totalTokens: usage.totalTokens,
+      },
+    });
+
+    return result.output!;
+  } catch (error) {
+    ctx?.log.error("step.error", "narrative agent failed", {
+      step: "run_narrative_agent",
+      durationMs: Date.now() - startedAt,
+      errorType: "unexpected",
+      errorName: error instanceof Error ? error.name : undefined,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+      model: modelSpec,
+      provider,
+    });
+    throw error;
+  }
 }

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/game/resign/route";
 import { runNarrativeAgent } from "@/ai/agents/narrative";
 import { createNewGame } from "@/engine/state";
+import { captureObservabilityLogs } from "../../../helpers/observability";
 
 vi.mock("@/ai/agents/narrative", () => ({
   runNarrativeAgent: vi.fn().mockImplementation(async (...args: unknown[]) => {
@@ -76,6 +77,22 @@ describe("POST /api/game/resign", () => {
     expect(json.error).toBe("等级不足以创业");
   });
 
+  it("logs eligibility failures as validation errors", async () => {
+    const logs = captureObservabilityLogs();
+    const state = createNewGame();
+    state.job.level = "L1";
+
+    await POST(
+      new Request("http://localhost/api/game/resign", {
+        method: "POST",
+        body: JSON.stringify({ state }),
+      }),
+    );
+
+    expect(logs.all().some((entry) => entry.event === "request.validation_failed")).toBe(true);
+    logs.restore();
+  });
+
   it("supports the executive path when requested", async () => {
     const state = createNewGame();
     state.job.level = "L8";
@@ -122,6 +139,7 @@ describe("POST /api/game/resign", () => {
       true,
       aiConfig,
       expect.any(Function),
+      expect.any(Object),
     );
   });
 });

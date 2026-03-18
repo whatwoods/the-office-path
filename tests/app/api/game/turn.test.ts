@@ -97,6 +97,7 @@ import { POST } from "@/app/api/game/turn/route";
 import { createNewGame } from "@/engine/state";
 import type { QuarterPlan } from "@/types/actions";
 import type { ExecutiveQuarterPlan } from "@/types/executive";
+import { captureObservabilityLogs } from "../../../helpers/observability";
 
 const mockedRunCriticalDayPipeline = vi.mocked(runCriticalDayPipeline);
 const mockedRunQuarterlyPipeline = vi.mocked(runQuarterlyPipeline);
@@ -160,6 +161,44 @@ describe("POST /api/game/turn", () => {
     expect(json.npcActions).toBeUndefined();
   });
 
+  it("logs the selected turn branch and request.finish", async () => {
+    const logs = captureObservabilityLogs();
+    const state = createNewGame();
+    state.timeMode = "quarterly";
+
+    await POST(
+      new Request("http://localhost/api/game/turn", {
+        method: "POST",
+        body: JSON.stringify({ state, plan: { actions: [] } }),
+      }),
+    );
+
+    const parsed = logs.all();
+    expect(
+      parsed.some(
+        (entry) => entry.event === "step.finish" && entry.step === "run_quarterly_pipeline",
+      ),
+    ).toBe(true);
+    expect(parsed.some((entry) => entry.event === "request.finish")).toBe(true);
+    logs.restore();
+  });
+
+  it("logs validation failures when plan is missing", async () => {
+    const logs = captureObservabilityLogs();
+    const state = createNewGame();
+    state.timeMode = "quarterly";
+
+    await POST(
+      new Request("http://localhost/api/game/turn", {
+        method: "POST",
+        body: JSON.stringify({ state }),
+      }),
+    );
+
+    expect(logs.all().some((entry) => entry.event === "request.validation_failed")).toBe(true);
+    logs.restore();
+  });
+
   it("passes aiConfig to the quarterly pipeline when provided", async () => {
     const state = createNewGame();
     state.timeMode = "quarterly";
@@ -177,7 +216,12 @@ describe("POST /api/game/turn", () => {
 
     await POST(req);
 
-    expect(mockedRunQuarterlyPipeline).toHaveBeenCalledWith(state, plan, aiConfig);
+    expect(mockedRunQuarterlyPipeline).toHaveBeenCalledWith(
+      state,
+      plan,
+      aiConfig,
+      expect.any(Object),
+    );
   });
 
   it("passes aiConfig to the critical-day pipeline when provided", async () => {
@@ -206,6 +250,7 @@ describe("POST /api/game/turn", () => {
       state,
       choice,
       aiConfig,
+      expect.any(Object),
     );
   });
 
@@ -285,6 +330,7 @@ describe("POST /api/game/turn", () => {
       state,
       plan,
       aiConfig,
+      expect.any(Object),
     );
   });
 });

@@ -1,6 +1,7 @@
 import { generateText, Output } from "ai";
 
 import { type AIUsageCollector, normalizeAIUsage } from "@/lib/aiUsage";
+import type { RequestContext } from "@/lib/observability/request-context";
 import { getModel, resolveAgentModel } from "@/ai/provider";
 import { EventAgentOutputSchema } from "@/ai/schemas";
 import type {
@@ -166,25 +167,61 @@ export async function runEventAgent(
   worldContext: WorldAgentOutput,
   aiConfig?: AIConfig,
   onUsage?: AIUsageCollector,
+  ctx?: RequestContext,
 ): Promise<EventAgentOutput> {
   const modelSpec = resolveAgentModel("event", aiConfig);
-  const result = await generateText({
-    model: getModel(
-      modelSpec,
-      aiConfig?.apiKey,
-      aiConfig?.baseUrl,
-    ),
-    output: Output.object({ schema: EventAgentOutputSchema }),
-    temperature: 0,
-    system: buildSystemPrompt(input),
-    prompt: buildUserPrompt(input, worldContext),
-  });
-
-  onUsage?.({
-    agent: "event",
+  const provider = modelSpec.split(":")[0];
+  const startedAt = Date.now();
+  ctx?.log.info("step.start", "event agent started", {
+    step: "run_event_agent",
     model: modelSpec,
-    ...normalizeAIUsage(result.usage),
+    provider,
   });
 
-  return result.output!;
+  try {
+    const result = await generateText({
+      model: getModel(
+        modelSpec,
+        aiConfig?.apiKey,
+        aiConfig?.baseUrl,
+      ),
+      output: Output.object({ schema: EventAgentOutputSchema }),
+      temperature: 0,
+      system: buildSystemPrompt(input),
+      prompt: buildUserPrompt(input, worldContext),
+    });
+    const usage = normalizeAIUsage(result.usage);
+
+    onUsage?.({
+      agent: "event",
+      model: modelSpec,
+      ...usage,
+    });
+
+    ctx?.log.info("step.finish", "event agent finished", {
+      step: "run_event_agent",
+      durationMs: Date.now() - startedAt,
+      model: modelSpec,
+      provider,
+      aiUsage: {
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        totalTokens: usage.totalTokens,
+      },
+    });
+
+    return result.output!;
+  } catch (error) {
+    ctx?.log.error("step.error", "event agent failed", {
+      step: "run_event_agent",
+      durationMs: Date.now() - startedAt,
+      errorType: "unexpected",
+      errorName: error instanceof Error ? error.name : undefined,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+      model: modelSpec,
+      provider,
+    });
+    throw error;
+  }
 }

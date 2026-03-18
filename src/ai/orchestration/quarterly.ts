@@ -18,6 +18,8 @@ import {
   createEmptyAIUsageSummary,
   type AIUsageSummary,
 } from "@/lib/aiUsage";
+import type { RequestContext } from "@/lib/observability/request-context";
+import { withObservedStep } from "@/lib/observability/timed";
 import { buildPhoneReplyContext } from "@/ai/orchestration/phone-context";
 import { applyStatChanges } from "@/engine/attributes";
 import { settleExecutiveQuarter } from "@/engine/executive-quarter";
@@ -67,6 +69,20 @@ interface FinalizePipelineOptions {
   salaryChange?: number;
   forcedCriticalType?: CriticalPeriodType | null;
   aiConfig?: AIConfig;
+  ctx?: RequestContext;
+}
+
+async function observeStep<T>(
+  ctx: RequestContext | undefined,
+  step: string,
+  fn: () => Promise<T> | T,
+  metadata?: Record<string, unknown>,
+): Promise<T> {
+  if (!ctx) {
+    return await fn();
+  }
+
+  return withObservedStep(ctx, step, fn, metadata ? { metadata } : undefined);
 }
 
 function createPhoneMessage(
@@ -274,6 +290,7 @@ async function maybeGenerateCriticalChoices(
   forcedCriticalType: CriticalPeriodType | null | undefined,
   aiConfig?: AIConfig,
   aiUsage?: AIUsageSummary,
+  ctx?: RequestContext,
 ): Promise<CriticalChoice[] | undefined> {
   const criticalEvent = eventOutput.events.find(
     (event) => event.triggersCritical && event.criticalType,
@@ -308,6 +325,7 @@ async function maybeGenerateCriticalChoices(
     true,
     aiConfig,
     collectUsage,
+    ctx,
   );
 
   if (!openingChoices.choices || !state.criticalPeriod) {
@@ -331,6 +349,7 @@ async function finalizePipeline({
   salaryChange,
   forcedCriticalType,
   aiConfig,
+  ctx,
 }: FinalizePipelineOptions): Promise<QuarterlyPipelineResult> {
   const aiUsage = createEmptyAIUsageSummary();
   const collectUsage = createAIUsageCollector(aiUsage);
@@ -341,18 +360,50 @@ async function finalizePipeline({
     maimaiActivity: collectMaimaiActivity(originalState),
   };
 
-  const worldOutput = await runWorldAgent(agentInput, aiConfig, collectUsage);
-
-  const rawEventOutput = await runEventAgent(
-    agentInput,
-    worldOutput,
-    aiConfig,
-    collectUsage,
+  const worldOutput = await observeStep(
+    ctx,
+    "run_world_agent",
+    () =>
+      ctx
+        ? runWorldAgent(agentInput, aiConfig, collectUsage, ctx)
+        : runWorldAgent(agentInput, aiConfig, collectUsage),
+    {
+      phase: settledState.phase,
+      currentQuarter: settledState.currentQuarter,
+    },
   );
-  const worldValidatedEvents = validateEvents(rawEventOutput.events, worldOutput);
-  const npcValidatedEvents = validateEventNPCConsistency(
-    worldValidatedEvents,
-    settledState.npcs,
+
+  const rawEventOutput = await observeStep(
+    ctx,
+    "run_event_agent",
+    () =>
+      ctx
+        ? runEventAgent(
+            agentInput,
+            worldOutput,
+            aiConfig,
+            collectUsage,
+            ctx,
+          )
+        : runEventAgent(
+            agentInput,
+            worldOutput,
+            aiConfig,
+            collectUsage,
+          ),
+    {
+      phase: settledState.phase,
+      currentQuarter: settledState.currentQuarter,
+    },
+  );
+  const worldValidatedEvents = await observeStep(ctx, "validate_events", () =>
+    validateEvents(rawEventOutput.events, worldOutput),
+  );
+  const npcValidatedEvents = await observeStep(ctx, "validate_event_npc_consistency", () =>
+    validateEventNPCConsistency(
+      worldValidatedEvents,
+      settledState.npcs,
+    ),
   );
   let eventOutput: EventAgentOutput = {
     ...rawEventOutput,
@@ -363,21 +414,44 @@ async function finalizePipeline({
     eventOutput = validateExecutiveEvents(eventOutput, settledState.npcs);
   }
 
-  applyEventEffects(settledState, eventOutput);
-  applyMaimaiResults(settledState, eventOutput.maimaiResults);
+  await observeStep(ctx, "apply_event_effects", () => {
+    applyEventEffects(settledState, eventOutput);
+    applyMaimaiResults(settledState, eventOutput.maimaiResults);
+  });
 
   const phoneReplyContext = buildPhoneReplyContext(settledState.phoneMessages);
 
-  const rawNPCOutput = await runNPCAgent(
-    agentInput,
-    worldOutput,
-    eventOutput,
-    playerActions,
-    phoneReplyContext,
-    aiConfig,
-    collectUsage,
+  const rawNPCOutput = await observeStep(
+    ctx,
+    "run_npc_agent",
+    () =>
+      ctx
+        ? runNPCAgent(
+            agentInput,
+            worldOutput,
+            eventOutput,
+            playerActions,
+            phoneReplyContext,
+            aiConfig,
+            collectUsage,
+            ctx,
+          )
+        : runNPCAgent(
+            agentInput,
+            worldOutput,
+            eventOutput,
+            playerActions,
+            phoneReplyContext,
+            aiConfig,
+            collectUsage,
+          ),
+    {
+      playerActionCount: playerActions.length,
+    },
   );
-  const npcOutput = validateNPCActions(rawNPCOutput, settledState.npcs);
+  const npcOutput = await observeStep(ctx, "validate_npc_actions", () =>
+    validateNPCActions(rawNPCOutput, settledState.npcs),
+  );
 
   applyNPCOutput(settledState, npcOutput);
 
@@ -387,19 +461,43 @@ async function finalizePipeline({
     companyStatus: worldOutput.companyStatus,
   };
 
-  const allMessages = appendPhoneMessages(settledState, eventOutput, npcOutput);
+  const allMessages = await observeStep(ctx, "append_phone_messages", () =>
+    appendPhoneMessages(settledState, eventOutput, npcOutput),
+  );
 
-  const narrativeOutput = await runNarrativeAgent(
-    agentInput,
-    worldOutput,
-    eventOutput,
-    npcOutput,
-    playerActions,
-    false,
-    phoneReplyContext,
-    undefined,
-    aiConfig,
-    collectUsage,
+  const narrativeOutput = await observeStep(
+    ctx,
+    "run_narrative_agent",
+    () =>
+      ctx
+        ? runNarrativeAgent(
+            agentInput,
+            worldOutput,
+            eventOutput,
+            npcOutput,
+            playerActions,
+            false,
+            phoneReplyContext,
+            undefined,
+            aiConfig,
+            collectUsage,
+            ctx,
+          )
+        : runNarrativeAgent(
+            agentInput,
+            worldOutput,
+            eventOutput,
+            npcOutput,
+            playerActions,
+            false,
+            phoneReplyContext,
+            undefined,
+            aiConfig,
+            collectUsage,
+          ),
+    {
+      messageCount: allMessages.length,
+    },
   );
 
   clampState(settledState);
@@ -410,23 +508,34 @@ async function finalizePipeline({
       `${action.npcName}好感${action.favorChange > 0 ? "+" : ""}${action.favorChange}`,
   );
 
-  const summary = createQuarterSummary(
-    settledState.currentQuarter,
-    beforeAttributes,
-    settledState.player,
-    eventTitles,
-    npcChanges,
-    narrativeOutput.narrativeSummary ?? narrativeOutput.narrative.slice(0, 100),
+  const summary = await observeStep(ctx, "create_history_summary", () =>
+    createQuarterSummary(
+      settledState.currentQuarter,
+      beforeAttributes,
+      settledState.player,
+      eventTitles,
+      npcChanges,
+      narrativeOutput.narrativeSummary ?? narrativeOutput.narrative.slice(0, 100),
+    ),
   );
   settledState.history.push(summary);
 
-  const criticalChoices = await maybeGenerateCriticalChoices(
-    settledState,
-    worldOutput,
-    eventOutput,
-    forcedCriticalType,
-    aiConfig,
-    aiUsage,
+  const criticalChoices = await observeStep(
+    ctx,
+    "maybe_generate_critical_choices",
+    () =>
+      maybeGenerateCriticalChoices(
+        settledState,
+        worldOutput,
+        eventOutput,
+        forcedCriticalType,
+        aiConfig,
+        aiUsage,
+        ctx,
+      ),
+    {
+      forcedCriticalType: forcedCriticalType ?? null,
+    },
   );
 
   return {
@@ -447,9 +556,12 @@ export async function runExecutiveQuarterlyPipeline(
   state: GameState,
   plan: ExecutiveQuarterPlan,
   aiConfig?: AIConfig,
+  ctx?: RequestContext,
 ): Promise<QuarterlyPipelineResult> {
   const beforeAttributes = { ...state.player };
-  const engineResult = settleExecutiveQuarter(state, plan);
+  const engineResult = await observeStep(ctx, "settle_executive_quarter_engine", () =>
+    settleExecutiveQuarter(state, plan),
+  );
 
   return finalizePipeline({
     originalState: state,
@@ -460,6 +572,7 @@ export async function runExecutiveQuarterlyPipeline(
       engineResult.triggerCriticalType ??
       (engineResult.triggerBoardReview ? "board_review" : null),
     aiConfig,
+    ctx,
   });
 }
 
@@ -467,17 +580,21 @@ export async function runQuarterlyPipeline(
   state: GameState,
   plan: QuarterPlan,
   aiConfig?: AIConfig,
+  ctx?: RequestContext,
 ): Promise<QuarterlyPipelineResult> {
   if (state.phase2Path === "executive") {
     return runExecutiveQuarterlyPipeline(
       state,
       plan as unknown as ExecutiveQuarterPlan,
       aiConfig,
+      ctx,
     );
   }
 
   const beforeAttributes = { ...state.player };
-  const engineResult = settleQuarter(state, plan);
+  const engineResult = await observeStep(ctx, "settle_quarter_engine", () =>
+    settleQuarter(state, plan),
+  );
 
   return finalizePipeline({
     originalState: state,
@@ -487,5 +604,6 @@ export async function runQuarterlyPipeline(
     performanceRating: engineResult.performanceRating,
     salaryChange: engineResult.salaryChange,
     aiConfig,
+    ctx,
   });
 }

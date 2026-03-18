@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/game/new/route";
 import { runNarrativeAgent } from "@/ai/agents/narrative";
+import { captureObservabilityLogs } from "../../../helpers/observability";
 
 vi.mock("@/ai/agents/narrative", () => ({
   runNarrativeAgent: vi.fn().mockImplementation(async (...args: unknown[]) => {
@@ -54,6 +55,28 @@ describe("POST /api/game/new", () => {
     expect(json.aiUsage.totalTokens).toBe(200);
   });
 
+  it("logs request.start and request.finish for successful new game requests", async () => {
+    const logs = captureObservabilityLogs();
+
+    const res = await POST(
+      new Request("http://localhost/api/game/new", {
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    const parsed = logs.all();
+    expect(parsed.some((entry) => entry.event === "request.start")).toBe(true);
+    expect(
+      parsed.some(
+        (entry) => entry.event === "step.finish" && entry.step === "run_narrative_agent",
+      ),
+    ).toBe(true);
+    expect(parsed.some((entry) => entry.event === "request.finish")).toBe(true);
+    logs.restore();
+  });
+
   it("creates the selected company and player name from intro params", async () => {
     const req = new Request("http://localhost/api/game/new", {
       method: "POST",
@@ -81,6 +104,7 @@ describe("POST /api/game/new", () => {
       true,
       undefined,
       expect.any(Function),
+      expect.any(Object),
     );
   });
 
@@ -108,6 +132,7 @@ describe("POST /api/game/new", () => {
       true,
       aiConfig,
       expect.any(Function),
+      expect.any(Object),
     );
   });
 
@@ -125,5 +150,20 @@ describe("POST /api/game/new", () => {
     expect(res.status).toBe(500);
     expect(json.success).toBe(false);
     expect(json.error).toBe("AI provider missing key");
+  });
+
+  it("logs request.error when the narrative agent throws", async () => {
+    const logs = captureObservabilityLogs();
+    mockedRunNarrativeAgent.mockRejectedValueOnce(new Error("AI provider missing key"));
+
+    await POST(
+      new Request("http://localhost/api/game/new", {
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    );
+
+    expect(logs.all().some((entry) => entry.event === "request.error")).toBe(true);
+    logs.restore();
   });
 });
