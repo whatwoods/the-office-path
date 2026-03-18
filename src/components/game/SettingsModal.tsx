@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { PROVIDER_CATALOG } from '@/ai/providerCatalog'
 import { ModelSearchInput } from '@/components/game/ModelSearchInput'
 import { Modal } from '@/components/ui/Modal'
+import { useAITelemetryStore } from '@/store/aiTelemetryStore'
 import { useSettingsStore } from '@/store/settingsStore'
 import type { AIProvider } from '@/types/settings'
 
@@ -18,6 +19,80 @@ const TAB_LABELS: Record<SettingsTab, string> = {
   ai: 'AI 模型',
   display: '显示',
   gameplay: '游戏',
+}
+
+const AGENT_ORDER = ['world', 'event', 'npc', 'narrative'] as const
+
+function formatTokens(value: number) {
+  return value.toLocaleString('en-US')
+}
+
+function AITelemetryPanel() {
+  const session = useAITelemetryStore(s => s.session)
+  const lastRequest = useAITelemetryStore(s => s.lastRequest)
+
+  return (
+    <div className="space-y-2">
+      <div className="text-sm text-[var(--pixel-text)]">Token 统计</div>
+      {session.calls === 0 ? (
+        <div className="pixel-border-light bg-[var(--pixel-bg-light)] p-3 text-xs text-[var(--pixel-text-dim)]">
+          本局还没有 AI 调用。
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="pixel-border-light bg-[var(--pixel-bg-light)] p-3">
+              <div className="text-[var(--pixel-text-dim)]">本局累计</div>
+              <div className="mt-1 text-sm text-[var(--pixel-text)]">
+                {formatTokens(session.totalTokens)} Tokens
+              </div>
+              <div className="mt-1 text-[10px] text-[var(--pixel-text-dim)]">
+                {session.calls} 次调用 / 输入 {formatTokens(session.inputTokens)} / 输出{' '}
+                {formatTokens(session.outputTokens)}
+              </div>
+            </div>
+            <div className="pixel-border-light bg-[var(--pixel-bg-light)] p-3">
+              <div className="text-[var(--pixel-text-dim)]">最近一次请求</div>
+              <div className="mt-1 text-sm text-[var(--pixel-text)]">
+                {formatTokens(lastRequest?.totalTokens ?? 0)} Tokens
+              </div>
+              <div className="mt-1 text-[10px] text-[var(--pixel-text-dim)]">
+                {(lastRequest?.calls ?? 0)} 次调用 / 输入{' '}
+                {formatTokens(lastRequest?.inputTokens ?? 0)} / 输出{' '}
+                {formatTokens(lastRequest?.outputTokens ?? 0)}
+              </div>
+            </div>
+          </div>
+
+          <div className="pixel-border-light overflow-hidden bg-[var(--pixel-bg-light)]">
+            <div className="grid grid-cols-[72px_52px_76px_1fr] gap-2 border-b border-[var(--pixel-border)] px-3 py-2 text-[10px] text-[var(--pixel-text-dim)]">
+              <span>Agent</span>
+              <span>调用</span>
+              <span>Tokens</span>
+              <span>模型</span>
+            </div>
+            {AGENT_ORDER.map(agent => (
+              <div
+                key={agent}
+                className="grid grid-cols-[72px_52px_76px_1fr] gap-2 border-b border-[var(--pixel-border)] px-3 py-2 text-[10px] last:border-b-0"
+              >
+                <span className="text-[var(--pixel-text)]">{agent}</span>
+                <span className="text-[var(--pixel-text-dim)]">
+                  {session.byAgent[agent].calls}
+                </span>
+                <span className="text-[var(--pixel-text-dim)]">
+                  {formatTokens(session.byAgent[agent].totalTokens)}
+                </span>
+                <span className="truncate text-[var(--pixel-text-dim)]">
+                  {session.byAgent[agent].model || '-'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function AITab() {
@@ -146,6 +221,8 @@ function AITab() {
             />
           ))}
       </div>
+
+      <AITelemetryPanel />
     </div>
   )
 }

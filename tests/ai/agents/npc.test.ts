@@ -128,6 +128,116 @@ describe("runNPCAgent", () => {
     expect(call.prompt).toContain("玩家选择了：认真听培训（学习）");
   });
 
+  it("keeps targeted NPCs but trims unrelated NPC context when the roster gets large", async () => {
+    mockedGenerateText.mockResolvedValueOnce({
+      output: { npcActions: [], chatMessages: [] },
+    } as never);
+
+    const input = makeInput();
+    input.state.npcs.push(
+      {
+        id: "chen_mo",
+        name: "陈默",
+        role: "隔壁组同事",
+        personality: "话少靠谱",
+        hiddenGoal: "想找机会转岗",
+        favor: 45,
+        isActive: true,
+        currentStatus: "在岗",
+        companyName: input.state.job.companyName,
+      },
+      {
+        id: "sun_qi",
+        name: "孙琪",
+        role: "测试同学",
+        personality: "细致认真",
+        hiddenGoal: "想做测试负责人",
+        favor: 48,
+        isActive: true,
+        currentStatus: "在岗",
+        companyName: input.state.job.companyName,
+      },
+      {
+        id: "liu_yuan",
+        name: "刘源",
+        role: "产品经理",
+        personality: "执行力强",
+        hiddenGoal: "想主导大项目",
+        favor: 52,
+        isActive: true,
+        currentStatus: "在岗",
+        companyName: input.state.job.companyName,
+      },
+      {
+        id: "target_npc",
+        name: "唐宁",
+        role: "合作同事",
+        personality: "谨慎克制",
+        hiddenGoal: "在观察谁值得合作",
+        favor: 51,
+        isActive: true,
+        currentStatus: "在岗",
+        companyName: input.state.job.companyName,
+      },
+      {
+        id: "former_a",
+        name: "前同事甲",
+        role: "前同事",
+        personality: "平和",
+        hiddenGoal: "想回大厂",
+        favor: 40,
+        isActive: false,
+        currentStatus: "离职",
+        companyName: "旧公司",
+      },
+      {
+        id: "former_b",
+        name: "前同事乙",
+        role: "前同事",
+        personality: "直接",
+        hiddenGoal: "在找新机会",
+        favor: 42,
+        isActive: false,
+        currentStatus: "离职",
+        companyName: "旧公司",
+      },
+      {
+        id: "former_c",
+        name: "前同事丙",
+        role: "前同事",
+        personality: "敏感",
+        hiddenGoal: "准备创业",
+        favor: 39,
+        isActive: false,
+        currentStatus: "离职",
+        companyName: "旧公司",
+      },
+      {
+        id: "former_d",
+        name: "前同事丁",
+        role: "前同事",
+        personality: "圆滑",
+        hiddenGoal: "想挖老同事",
+        favor: 44,
+        isActive: false,
+        currentStatus: "离职",
+        companyName: "旧公司",
+      },
+    );
+
+    await runNPCAgent(
+      input,
+      worldContext,
+      eventContext,
+      [{ action: "socialize", target: "target_npc" }],
+    );
+
+    const call = mockedGenerateText.mock.calls[0][0] as { prompt: string };
+    expect(call.prompt).toContain("唐宁");
+    expect(call.prompt).not.toContain("陈默");
+    expect(call.prompt).not.toContain("前同事甲");
+  });
+
   it("uses deterministic JSON-only settings for structured output", async () => {
     mockedGenerateText.mockResolvedValueOnce({
       output: { npcActions: [], chatMessages: [] },

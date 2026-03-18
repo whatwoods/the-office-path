@@ -135,6 +135,7 @@ describe("runCriticalDayPipeline", () => {
       expect.stringContaining("完成最后一天"),
       false,
       undefined,
+      expect.any(Function),
     );
   });
 
@@ -187,11 +188,13 @@ describe("runCriticalDayPipeline", () => {
       expect.any(Array),
       expect.any(String),
       aiConfig,
+      expect.any(Function),
     );
     expect(mockedEvent).toHaveBeenCalledWith(
       expect.any(Object),
       expect.any(Object),
       aiConfig,
+      expect.any(Function),
     );
     expect(mockedNarrative).toHaveBeenCalledWith(
       expect.any(Object),
@@ -203,6 +206,7 @@ describe("runCriticalDayPipeline", () => {
       expect.any(String),
       true,
       aiConfig,
+      expect.any(Function),
     );
   });
 });

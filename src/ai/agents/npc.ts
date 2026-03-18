@@ -1,5 +1,6 @@
 import { generateText, Output } from "ai";
 
+import { type AIUsageCollector, normalizeAIUsage } from "@/lib/aiUsage";
 import { getModel, resolveAgentModel } from "@/ai/provider";
 import { NPCAgentOutputSchema } from "@/ai/schemas";
 import type {
@@ -8,6 +9,7 @@ import type {
   NPCAgentOutput,
   WorldAgentOutput,
 } from "@/types/agents";
+import type { NPC } from "@/types/game";
 import type { AIConfig } from "@/types/settings";
 
 type PromptAction = {
@@ -30,14 +32,99 @@ const STRICT_JSON_INSTRUCTIONS = `
 
 结构化输出要求：
 - 只返回单个 JSON 对象
-- 不要输出 markdown、标题、分隔线、解释、额外说明
-- 所有字段必须严格遵守 schema，缺失字段使用空数组或省略可选字段
 - 顶层字段只能使用 npcActions、chatMessages、newNpcs、departedNpcs
-- npcActions 中的每一项都必须包含 npcName、action、favorChange、reason；dialogue 可选
-- chatMessages 中的每一项都必须包含 app、sender、content；replyOptions 可选
+- npcActions 中每项都要有 npcName、action、favorChange、reason；dialogue 可选
+- chatMessages 中每项都要有 app、sender、content；replyOptions 可选
 - app 必须使用 schema 的英文枚举值，例如 xiaoxin、dingding、maimai，不要写成“小信”或“叮叮”这类中文标签
 - 不要使用 reaction、messages、from、type 这类未定义字段
 `;
+
+const MAX_ACTIVE_NPCS_IN_PROMPT = 6;
+const MAX_INACTIVE_NPCS_IN_PROMPT = 3;
+const PROFILE_TEXT_LIMIT = 18;
+const EVENT_TEXT_LIMIT = 36;
+
+function truncateText(text: string, maxLength: number): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength - 3)}...`;
+}
+
+function collectRelevantNpcIds(
+  input: AgentInput,
+  eventContext: EventAgentOutput,
+  playerActions: PromptAction[],
+  playerContext?: string,
+): Set<string> {
+  const relevantIds = new Set<string>();
+  const npcById = new Map(input.state.npcs.map((npc) => [npc.id, npc]));
+  const npcByName = new Map(input.state.npcs.map((npc) => [npc.name, npc]));
+
+  for (const action of playerActions) {
+    if (!action.target) {
+      continue;
+    }
+
+    const matchedNpc = npcById.get(action.target) ?? npcByName.get(action.target);
+    if (matchedNpc) {
+      relevantIds.add(matchedNpc.id);
+    }
+  }
+
+  const referenceText = [
+    ...eventContext.events.map((event) => `${event.title}${event.description}`),
+    playerContext ?? "",
+  ].join("\n");
+
+  for (const npc of input.state.npcs) {
+    if (referenceText.includes(npc.name)) {
+      relevantIds.add(npc.id);
+    }
+  }
+
+  return relevantIds;
+}
+
+function pickPromptNpcs(
+  npcs: NPC[],
+  relevantIds: Set<string>,
+  limit: number,
+  preferRecent: boolean = false,
+): NPC[] {
+  const picked: NPC[] = [];
+  const seen = new Set<string>();
+
+  for (const npc of npcs) {
+    if (picked.length >= limit || !relevantIds.has(npc.id)) {
+      continue;
+    }
+
+    picked.push(npc);
+    seen.add(npc.id);
+  }
+
+  const fallback = preferRecent ? [...npcs].reverse() : npcs;
+  for (const npc of fallback) {
+    if (picked.length >= limit || seen.has(npc.id)) {
+      continue;
+    }
+
+    picked.push(npc);
+    seen.add(npc.id);
+  }
+
+  return picked;
+}
+
+function formatNpcProfile(npc: NPC): string {
+  return `- ${npc.name}|${npc.role}|好感${npc.favor}|${npc.currentStatus}|性格:${truncateText(
+    npc.personality,
+    PROFILE_TEXT_LIMIT,
+  )}|目标:${truncateText(npc.hiddenGoal, PROFILE_TEXT_LIMIT)}`;
+}
 
 function buildSystemPrompt(input: AgentInput): string {
   const phase = input.state.phase;
@@ -92,19 +179,28 @@ function buildUserPrompt(
 ): string {
   const activeNpcs = input.state.npcs.filter((npc) => npc.isActive);
   const inactiveNpcs = input.state.npcs.filter((npc) => !npc.isActive);
+  const relevantNpcIds = collectRelevantNpcIds(
+    input,
+    eventContext,
+    playerActions,
+    playerContext,
+  );
 
-  const npcProfiles = activeNpcs
-    .map(
-      (npc) =>
-        `- ${npc.name}（${npc.role}，${npc.companyName}）：性格"${npc.personality}"，隐藏目标"${npc.hiddenGoal}"，好感度${npc.favor}，状态：${npc.currentStatus}`,
-    )
+  const npcProfiles = pickPromptNpcs(
+    activeNpcs,
+    relevantNpcIds,
+    MAX_ACTIVE_NPCS_IN_PROMPT,
+  )
+    .map(formatNpcProfile)
     .join("\n");
 
-  const inactiveProfiles = inactiveNpcs
-    .slice(-10)
-    .map(
-      (npc) => `- ${npc.name}（${npc.role}，${npc.companyName}）：好感度${npc.favor}`,
-    )
+  const inactiveProfiles = pickPromptNpcs(
+    inactiveNpcs,
+    relevantNpcIds,
+    MAX_INACTIVE_NPCS_IN_PROMPT,
+    true,
+  )
+    .map((npc) => `- ${npc.name}|${npc.role}|好感${npc.favor}|${npc.companyName}`)
     .join("\n");
 
   const actions = playerActions
@@ -116,7 +212,7 @@ function buildUserPrompt(
     .join("、");
 
   const events = eventContext.events
-    .map((event) => `${event.title}：${event.description}`)
+    .map((event) => `${event.title}：${truncateText(event.description, EVENT_TEXT_LIMIT)}`)
     .join("\n");
 
   const history = input.recentHistory
@@ -150,10 +246,12 @@ export async function runNPCAgent(
   playerActions: PromptAction[],
   playerContext?: string,
   aiConfig?: AIConfig,
+  onUsage?: AIUsageCollector,
 ): Promise<NPCAgentOutput> {
-  const { output } = await generateText({
+  const modelSpec = resolveAgentModel("npc", aiConfig);
+  const result = await generateText({
     model: getModel(
-      resolveAgentModel("npc", aiConfig),
+      modelSpec,
       aiConfig?.apiKey,
       aiConfig?.baseUrl,
     ),
@@ -169,5 +267,11 @@ export async function runNPCAgent(
     ),
   });
 
-  return output!;
+  onUsage?.({
+    agent: "npc",
+    model: modelSpec,
+    ...normalizeAIUsage(result.usage),
+  });
+
+  return result.output!;
 }

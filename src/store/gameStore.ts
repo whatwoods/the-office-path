@@ -13,12 +13,14 @@ import {
   saveGame as storageSave,
 } from "@/save/storage";
 import type { SaveSlot } from "@/save/storage";
+import { useAITelemetryStore } from "@/store/aiTelemetryStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import type { CriticalChoice, QuarterPlan } from "@/types/actions";
 import type { ExecutiveQuarterPlan, Phase2Path } from "@/types/executive";
 import type { GameEvent } from "@/types/events";
 import type { GameState, MajorType, PhoneApp } from "@/types/game";
 import type { AIConfig } from "@/types/settings";
+import type { AIUsageSummary } from "@/lib/aiUsage";
 
 interface PromotionInfo {
   eligible: boolean;
@@ -39,6 +41,17 @@ function buildAIConfig(): { aiConfig?: AIConfig } {
 function autoSaveIfEnabled(state: GameState): void {
   if (useSettingsStore.getState().settings.gameplay.autoSave) {
     storageSave(state, "auto");
+  }
+}
+
+function syncAITelemetry(summary: AIUsageSummary | undefined, reset: boolean = false): void {
+  const telemetry = useAITelemetryStore.getState();
+  if (reset) {
+    telemetry.reset();
+  }
+
+  if (summary) {
+    telemetry.recordRequest(summary);
   }
 }
 
@@ -135,6 +148,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         showQuarterTransition: true,
         lastPerformance: null,
       });
+      syncAITelemetry(data.aiUsage, true);
     } catch {
       set({ error: "网络错误", isLoading: false });
     }
@@ -173,6 +187,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             }
           : null,
       });
+      syncAITelemetry(data.aiUsage);
       autoSaveIfEnabled(data.state);
     } catch {
       set({ error: "网络错误", isLoading: false });
@@ -204,6 +219,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         currentEvent: null,
         showQuarterTransition: data.isComplete === true,
       });
+      syncAITelemetry(data.aiUsage);
     } catch {
       set({ error: "网络错误", isLoading: false });
     }
@@ -235,6 +251,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         showQuarterTransition: true,
         lastPerformance: null,
       });
+      syncAITelemetry(data.aiUsage);
     } catch {
       set({ error: "网络错误", isLoading: false });
     }

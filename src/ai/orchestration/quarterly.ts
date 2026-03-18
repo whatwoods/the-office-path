@@ -13,6 +13,11 @@ import {
   createQuarterSummary,
   getRecentHistory,
 } from "@/ai/orchestration/history";
+import {
+  createAIUsageCollector,
+  createEmptyAIUsageSummary,
+  type AIUsageSummary,
+} from "@/lib/aiUsage";
 import { buildPhoneReplyContext } from "@/ai/orchestration/phone-context";
 import { applyStatChanges } from "@/engine/attributes";
 import { settleExecutiveQuarter } from "@/engine/executive-quarter";
@@ -48,6 +53,7 @@ export interface QuarterlyPipelineResult {
   performanceRating?: string;
   salaryChange?: number;
   criticalChoices?: CriticalChoice[];
+  aiUsage: AIUsageSummary;
 }
 
 type PromptAction = Array<{ action: string; target?: string }>;
@@ -267,6 +273,7 @@ async function maybeGenerateCriticalChoices(
   eventOutput: EventAgentOutput,
   forcedCriticalType: CriticalPeriodType | null | undefined,
   aiConfig?: AIConfig,
+  aiUsage?: AIUsageSummary,
 ): Promise<CriticalChoice[] | undefined> {
   const criticalEvent = eventOutput.events.find(
     (event) => event.triggersCritical && event.criticalType,
@@ -281,6 +288,8 @@ async function maybeGenerateCriticalChoices(
   state.timeMode = "critical";
   state.criticalPeriod = enterCriticalPeriod(criticalToEnter);
   state.staminaRemaining = state.criticalPeriod.staminaPerDay;
+  const collectUsage =
+    aiUsage ? createAIUsageCollector(aiUsage) : undefined;
 
   const openingChoices = await runNarrativeAgent(
     { state, recentHistory: getRecentHistory(state.history) },
@@ -298,6 +307,7 @@ async function maybeGenerateCriticalChoices(
       : `进入关键期：${criticalToEnter}`,
     true,
     aiConfig,
+    collectUsage,
   );
 
   if (!openingChoices.choices || !state.criticalPeriod) {
@@ -322,6 +332,8 @@ async function finalizePipeline({
   forcedCriticalType,
   aiConfig,
 }: FinalizePipelineOptions): Promise<QuarterlyPipelineResult> {
+  const aiUsage = createEmptyAIUsageSummary();
+  const collectUsage = createAIUsageCollector(aiUsage);
   const recentHistory = getRecentHistory(settledState.history);
   const agentInput: AgentInput = {
     state: settledState,
@@ -329,9 +341,14 @@ async function finalizePipeline({
     maimaiActivity: collectMaimaiActivity(originalState),
   };
 
-  const worldOutput = await runWorldAgent(agentInput, aiConfig);
+  const worldOutput = await runWorldAgent(agentInput, aiConfig, collectUsage);
 
-  const rawEventOutput = await runEventAgent(agentInput, worldOutput, aiConfig);
+  const rawEventOutput = await runEventAgent(
+    agentInput,
+    worldOutput,
+    aiConfig,
+    collectUsage,
+  );
   const worldValidatedEvents = validateEvents(rawEventOutput.events, worldOutput);
   const npcValidatedEvents = validateEventNPCConsistency(
     worldValidatedEvents,
@@ -358,6 +375,7 @@ async function finalizePipeline({
     playerActions,
     phoneReplyContext,
     aiConfig,
+    collectUsage,
   );
   const npcOutput = validateNPCActions(rawNPCOutput, settledState.npcs);
 
@@ -381,6 +399,7 @@ async function finalizePipeline({
     phoneReplyContext,
     undefined,
     aiConfig,
+    collectUsage,
   );
 
   clampState(settledState);
@@ -407,6 +426,7 @@ async function finalizePipeline({
     eventOutput,
     forcedCriticalType,
     aiConfig,
+    aiUsage,
   );
 
   return {
@@ -419,6 +439,7 @@ async function finalizePipeline({
     performanceRating,
     salaryChange,
     criticalChoices,
+    aiUsage,
   };
 }
 

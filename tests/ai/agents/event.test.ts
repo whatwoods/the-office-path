@@ -95,6 +95,45 @@ describe("runEventAgent", () => {
     expect(call.system).toContain("只返回单个 JSON 对象");
   });
 
+  it("omits maimai instructions when there is no maimai activity", async () => {
+    mockedGenerateText.mockResolvedValueOnce({
+      output: { events: [], phoneMessages: [] },
+    } as never);
+
+    await runEventAgent(makeInput(), worldContext);
+
+    const call = mockedGenerateText.mock.calls[0][0] as { system: string };
+    expect(call.system).not.toContain("麦麦帖子后果分析");
+  });
+
+  it("includes maimai instructions only when maimai activity exists", async () => {
+    mockedGenerateText.mockResolvedValueOnce({
+      output: { events: [], phoneMessages: [] },
+    } as never);
+
+    const input = makeInput();
+    input.maimaiActivity = {
+      playerPosts: [
+        {
+          id: "post_1",
+          quarter: 0,
+          author: "player",
+          content: "这公司也太卷了",
+          likes: 0,
+          playerLiked: false,
+          comments: [],
+        },
+      ],
+      playerLikes: [],
+      playerComments: [],
+    };
+
+    await runEventAgent(input, worldContext);
+
+    const call = mockedGenerateText.mock.calls[0][0] as { system: string };
+    expect(call.system).toContain("麦麦帖子后果分析");
+  });
+
   it("spells out the exact event schema fields and app enum ids", async () => {
     mockedGenerateText.mockResolvedValueOnce({
       output: { events: [], phoneMessages: [] },

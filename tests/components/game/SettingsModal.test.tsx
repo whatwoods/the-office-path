@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useAITelemetryStore } from '@/store/aiTelemetryStore'
 import { SettingsModal } from '@/components/game/SettingsModal'
 import { useSettingsStore } from '@/store/settingsStore'
 import { DEFAULT_SETTINGS } from '@/types/settings'
@@ -20,6 +21,7 @@ describe('SettingsModal', () => {
   beforeEach(() => {
     Object.keys(storage).forEach(key => delete storage[key])
     useSettingsStore.setState({ settings: structuredClone(DEFAULT_SETTINGS) })
+    useAITelemetryStore.getState().reset()
   })
 
   it('does not render when closed', () => {
@@ -105,6 +107,28 @@ describe('SettingsModal', () => {
 
     expect(screen.getByLabelText('world 模型覆盖')).toBeDefined()
     expect(screen.getByLabelText('narrative 模型覆盖')).toBeDefined()
+  })
+
+  it('shows AI token telemetry in the AI tab', () => {
+    useAITelemetryStore.getState().recordRequest({
+      calls: 4,
+      inputTokens: 400,
+      outputTokens: 180,
+      totalTokens: 580,
+      byAgent: {
+        world: { calls: 1, inputTokens: 60, outputTokens: 20, totalTokens: 80, model: 'openai:gpt-4o-mini' },
+        event: { calls: 1, inputTokens: 80, outputTokens: 40, totalTokens: 120, model: 'openai:gpt-4o-mini' },
+        npc: { calls: 1, inputTokens: 120, outputTokens: 40, totalTokens: 160, model: 'openai:gpt-4o' },
+        narrative: { calls: 1, inputTokens: 140, outputTokens: 80, totalTokens: 220, model: 'openai:gpt-4o' },
+      },
+    })
+
+    render(<SettingsModal open={true} onClose={vi.fn()} />)
+
+    expect(screen.getByText('Token 统计')).toBeDefined()
+    expect(screen.getByText(/本局累计/)).toBeDefined()
+    expect(screen.getAllByText(/580 Tokens/)).toHaveLength(2)
+    expect(screen.getByText(/narrative/)).toBeDefined()
   })
 
   it('display tab shows narrative speed slider and font size', async () => {

@@ -4,17 +4,28 @@ import { runNarrativeAgent } from "@/ai/agents/narrative";
 import { createNewGame } from "@/engine/state";
 
 vi.mock("@/ai/agents/narrative", () => ({
-  runNarrativeAgent: vi.fn().mockResolvedValue({
-    narrative: "你决定离职创业。",
-    choices: [
-      {
-        choiceId: "startup_launch_d1_a",
-        label: "注册公司",
-        staminaCost: 1,
-        effects: { statChanges: { professional: 2 } },
-        category: "搭建",
-      },
-    ],
+  runNarrativeAgent: vi.fn().mockImplementation(async (...args: unknown[]) => {
+    const collector = args[9] as ((usage: unknown) => void) | undefined
+    collector?.({
+      agent: "narrative",
+      model: "openai:gpt-4o",
+      inputTokens: 140,
+      outputTokens: 60,
+      totalTokens: 200,
+    })
+
+    return {
+      narrative: "你决定离职创业。",
+      choices: [
+        {
+          choiceId: "startup_launch_d1_a",
+          label: "注册公司",
+          staminaCost: 1,
+          effects: { statChanges: { professional: 2 } },
+          category: "搭建",
+        },
+      ],
+    }
   }),
 }));
 
@@ -45,6 +56,7 @@ describe("POST /api/game/resign", () => {
     expect(json.criticalChoices).toBeDefined();
     expect(json.criticalChoices.length).toBe(1);
     expect(json.criticalChoices[0].label).toBe("注册公司");
+    expect(json.aiUsage.totalTokens).toBe(200);
   });
 
   it("ineligible level returns 400", async () => {
@@ -109,6 +121,7 @@ describe("POST /api/game/resign", () => {
       "玩家离职创业了。",
       true,
       aiConfig,
+      expect.any(Function),
     );
   });
 });

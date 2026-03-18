@@ -152,6 +152,54 @@ describe("runNarrativeAgent", () => {
     expect(call.prompt).toContain("expanding");
   });
 
+  it("truncates overly long event and NPC detail text in the prompt", async () => {
+    mockedGenerateText.mockResolvedValueOnce({
+      output: { narrative: "test" },
+    } as never);
+
+    const verboseEventCtx: EventAgentOutput = {
+      events: [
+        {
+          type: "workplace",
+          title: "团建",
+          description: "这是一个很长很长的事件描述".repeat(8),
+          severity: "low" as const,
+          triggersCritical: false,
+        },
+      ],
+      phoneMessages: [],
+    };
+
+    const verboseNpcCtx: NPCAgentOutput = {
+      npcActions: [
+        {
+          npcName: "王建国",
+          action: "找你谈话",
+          dialogue: "这是一段很长很长的对话内容".repeat(8),
+          favorChange: 5,
+          reason: "工作好",
+        },
+      ],
+      chatMessages: [],
+    };
+
+    await runNarrativeAgent(
+      makeInput(),
+      worldCtx,
+      verboseEventCtx,
+      verboseNpcCtx,
+      actions,
+      false,
+    );
+
+    const call = mockedGenerateText.mock.calls[0][0] as { prompt: string };
+    expect(call.prompt).toContain("团建");
+    expect(call.prompt).toContain("王建国");
+    expect(call.prompt).not.toContain(verboseEventCtx.events[0].description);
+    expect(call.prompt).not.toContain(verboseNpcCtx.npcActions[0].dialogue);
+    expect(call.prompt).toContain("...");
+  });
+
   it("can skip choices on the final critical day", async () => {
     mockedGenerateText.mockResolvedValueOnce({
       output: { narrative: "你终于完成了入职关键期的最后一天。" },

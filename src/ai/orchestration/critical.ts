@@ -3,6 +3,11 @@ import { runNarrativeAgent } from "@/ai/agents/narrative";
 import { runNPCAgent } from "@/ai/agents/npc";
 import { validateChoices, validateNPCActions } from "@/ai/orchestration/conflict";
 import { getRecentHistory } from "@/ai/orchestration/history";
+import {
+  createAIUsageCollector,
+  createEmptyAIUsageSummary,
+  type AIUsageSummary,
+} from "@/lib/aiUsage";
 import { buildPhoneReplyContext } from "@/ai/orchestration/phone-context";
 import { applyStatChanges } from "@/engine/attributes";
 import { settleCriticalDay } from "@/engine/critical-day";
@@ -21,6 +26,7 @@ export interface CriticalDayPipelineResult {
   nextChoices?: CriticalChoice[];
   isComplete: boolean;
   npcActions: Array<{ npcName: string; action: string; favorChange: number }>;
+  aiUsage: AIUsageSummary;
 }
 
 function buildCriticalStoryState(
@@ -64,6 +70,8 @@ export async function runCriticalDayPipeline(
   choice: CriticalChoice,
   aiConfig?: AIConfig,
 ): Promise<CriticalDayPipelineResult> {
+  const aiUsage = createEmptyAIUsageSummary();
+  const collectUsage = createAIUsageCollector(aiUsage);
   const engineResult = settleCriticalDay(state, choice);
   const settledState = engineResult.state;
 
@@ -92,6 +100,7 @@ export async function runCriticalDayPipeline(
     [],
     playerContext,
     aiConfig,
+    collectUsage,
   );
   const npcOutput = validateNPCActions(rawNPCOutput, settledState.npcs);
 
@@ -106,6 +115,7 @@ export async function runCriticalDayPipeline(
     agentInput,
     worldContext,
     aiConfig,
+    collectUsage,
   );
 
   for (const event of eventOutput.events) {
@@ -140,6 +150,7 @@ export async function runCriticalDayPipeline(
     playerContext,
     isCriticalStill,
     aiConfig,
+    collectUsage,
   );
 
   let nextChoices: CriticalChoice[] | undefined;
@@ -158,5 +169,6 @@ export async function runCriticalDayPipeline(
     nextChoices,
     isComplete: engineResult.isComplete,
     npcActions: npcOutput.npcActions,
+    aiUsage,
   };
 }

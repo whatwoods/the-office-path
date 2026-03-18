@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from 'next'
-import { DotGothic16 } from 'next/font/google'
+import localFont from 'next/font/local'
 import './globals.css'
 
-const zpix = DotGothic16({
+const zpix = localFont({
+  src: './fonts/zpix.ttf',
   weight: '400',
-  subsets: ['latin'],
+  style: 'normal',
   variable: '--font-zpix',
   display: 'swap',
 })

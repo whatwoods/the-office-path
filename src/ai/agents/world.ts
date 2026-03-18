@@ -1,5 +1,6 @@
 import { generateText, Output } from "ai";
 
+import { type AIUsageCollector, normalizeAIUsage } from "@/lib/aiUsage";
 import { getModel, resolveAgentModel } from "@/ai/provider";
 import { WorldAgentOutputSchema } from "@/ai/schemas";
 import type { AgentInput, WorldAgentOutput } from "@/types/agents";
@@ -65,10 +66,12 @@ ${history ? `\n最近历史：\n${history}` : ""}
 export async function runWorldAgent(
   input: AgentInput,
   aiConfig?: AIConfig,
+  onUsage?: AIUsageCollector,
 ): Promise<WorldAgentOutput> {
-  const { output } = await generateText({
+  const modelSpec = resolveAgentModel("world", aiConfig);
+  const result = await generateText({
     model: getModel(
-      resolveAgentModel("world", aiConfig),
+      modelSpec,
       aiConfig?.apiKey,
       aiConfig?.baseUrl,
     ),
@@ -77,5 +80,11 @@ export async function runWorldAgent(
     prompt: buildUserPrompt(input),
   });
 
-  return output!;
+  onUsage?.({
+    agent: "world",
+    model: modelSpec,
+    ...normalizeAIUsage(result.usage),
+  });
+
+  return result.output!;
 }

@@ -1,4 +1,5 @@
 import { createNewGame } from "@/engine/state";
+import { createAIUsageCollector, createEmptyAIUsageSummary } from "@/lib/aiUsage";
 import { runNarrativeAgent } from "@/ai/agents/narrative";
 import { validateChoices } from "@/ai/orchestration/conflict";
 import type { AgentInput } from "@/types/agents";
@@ -16,6 +17,8 @@ export async function POST(request: Request) {
       major: body.major,
       playerName: body.playerName,
     });
+    const aiUsage = createEmptyAIUsageSummary();
+    const collectUsage = createAIUsageCollector(aiUsage);
 
     const agentInput: AgentInput = { state, recentHistory: [] };
     const worldContext = {
@@ -35,6 +38,7 @@ export async function POST(request: Request) {
       `玩家入职了${state.job.companyName}。`,
       true,
       body.aiConfig,
+      collectUsage,
     );
 
     let criticalChoices;
@@ -52,6 +56,7 @@ export async function POST(request: Request) {
       state,
       narrative: narrativeOutput.narrative,
       criticalChoices,
+      aiUsage,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

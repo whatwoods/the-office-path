@@ -163,6 +163,7 @@ describe("runQuarterlyPipeline", () => {
       expect.any(Object),
       expect.objectContaining({ economy: "stable" }),
       undefined,
+      expect.any(Function),
     );
   });
 
@@ -177,6 +178,7 @@ describe("runQuarterlyPipeline", () => {
       expect.any(Array),
       undefined,
       undefined,
+      expect.any(Function),
     );
   });
 
@@ -192,11 +194,12 @@ describe("runQuarterlyPipeline", () => {
 
     await runQuarterlyPipeline(state, plan, aiConfig);
 
-    expect(mockedWorld).toHaveBeenCalledWith(expect.any(Object), aiConfig);
+    expect(mockedWorld).toHaveBeenCalledWith(expect.any(Object), aiConfig, expect.any(Function));
     expect(mockedEvent).toHaveBeenCalledWith(
       expect.any(Object),
       expect.any(Object),
       aiConfig,
+      expect.any(Function),
     );
     expect(mockedNPC).toHaveBeenCalledWith(
       expect.any(Object),
@@ -205,6 +208,7 @@ describe("runQuarterlyPipeline", () => {
       expect.any(Array),
       undefined,
       aiConfig,
+      expect.any(Function),
     );
     expect(mockedNarrative).toHaveBeenCalledWith(
       expect.any(Object),
@@ -216,6 +220,7 @@ describe("runQuarterlyPipeline", () => {
       undefined,
       undefined,
       aiConfig,
+      expect.any(Function),
     );
   });
 
@@ -289,11 +294,12 @@ describe("runQuarterlyPipeline", () => {
 
     await runExecutiveQuarterlyPipeline(state, executivePlan, aiConfig);
 
-    expect(mockedWorld).toHaveBeenCalledWith(expect.any(Object), aiConfig);
+    expect(mockedWorld).toHaveBeenCalledWith(expect.any(Object), aiConfig, expect.any(Function));
     expect(mockedEvent).toHaveBeenCalledWith(
       expect.any(Object),
       expect.any(Object),
       aiConfig,
+      expect.any(Function),
     );
     expect(mockedNPC).toHaveBeenCalledWith(
       expect.any(Object),
@@ -302,6 +308,7 @@ describe("runQuarterlyPipeline", () => {
       expect.any(Array),
       undefined,
       aiConfig,
+      expect.any(Function),
     );
     expect(mockedNarrative).toHaveBeenCalledWith(
       expect.any(Object),
@@ -313,6 +320,7 @@ describe("runQuarterlyPipeline", () => {
       undefined,
       undefined,
       aiConfig,
+      expect.any(Function),
     );
   });
 });

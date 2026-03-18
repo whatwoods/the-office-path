@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createNewGame } from "@/engine/state";
+import { useAITelemetryStore } from "@/store/aiTelemetryStore";
 import { useGameStore } from "@/store/gameStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import type { CriticalChoice, QuarterPlan } from "@/types/actions";
@@ -39,6 +40,7 @@ describe("useGameStore", () => {
     mockFetch.mockReset();
     Object.keys(storage).forEach((key) => delete storage[key]);
     useSettingsStore.setState({ settings: structuredClone(DEFAULT_SETTINGS) });
+    useAITelemetryStore.getState().reset();
   });
 
   it("has correct initial state", () => {
@@ -71,6 +73,18 @@ describe("useGameStore", () => {
           state: mockState,
           narrative: "入职第一天，你抱着笔记本走进了工位区。",
           criticalChoices: openingChoices,
+          aiUsage: {
+            calls: 1,
+            inputTokens: 120,
+            outputTokens: 80,
+            totalTokens: 200,
+            byAgent: {
+              world: { calls: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, model: "" },
+              event: { calls: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, model: "" },
+              npc: { calls: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, model: "" },
+              narrative: { calls: 1, inputTokens: 120, outputTokens: 80, totalTokens: 200, model: "openai:gpt-4o" },
+            },
+          },
         }),
     });
 
@@ -81,6 +95,10 @@ describe("useGameStore", () => {
     expect(store.narrativeQueue).toEqual(["入职第一天，你抱着笔记本走进了工位区。"]);
     expect(store.criticalChoices).toEqual(openingChoices);
     expect(store.isLoading).toBe(false);
+    expect(useAITelemetryStore.getState().session.totalTokens).toBe(200);
+    expect(useAITelemetryStore.getState().lastRequest?.byAgent.narrative.totalTokens).toBe(
+      200,
+    );
     expect(mockFetch).toHaveBeenCalledWith(
       "/api/game/new",
       expect.objectContaining({
@@ -370,6 +388,61 @@ describe("useGameStore", () => {
       rating: "A",
       salaryChange: 5000,
     });
+  });
+
+  it("submitQuarter accumulates AI telemetry from API responses", async () => {
+    const mockState = createNewGame();
+    const quarterlyState = {
+      ...mockState,
+      timeMode: "quarterly" as const,
+      criticalPeriod: null,
+      staminaRemaining: 10,
+    };
+    useGameStore.setState({ state: quarterlyState });
+    useAITelemetryStore.getState().recordRequest({
+      calls: 1,
+      inputTokens: 100,
+      outputTokens: 50,
+      totalTokens: 150,
+      byAgent: {
+        world: { calls: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, model: "" },
+        event: { calls: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, model: "" },
+        npc: { calls: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, model: "" },
+        narrative: { calls: 1, inputTokens: 100, outputTokens: 50, totalTokens: 150, model: "openai:gpt-4o" },
+      },
+    });
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          success: true,
+          state: quarterlyState,
+          narrative: "季度...",
+          events: [],
+          aiUsage: {
+            calls: 4,
+            inputTokens: 400,
+            outputTokens: 180,
+            totalTokens: 580,
+            byAgent: {
+              world: { calls: 1, inputTokens: 60, outputTokens: 20, totalTokens: 80, model: "openai:gpt-4o-mini" },
+              event: { calls: 1, inputTokens: 80, outputTokens: 40, totalTokens: 120, model: "openai:gpt-4o-mini" },
+              npc: { calls: 1, inputTokens: 120, outputTokens: 40, totalTokens: 160, model: "openai:gpt-4o" },
+              narrative: { calls: 1, inputTokens: 140, outputTokens: 80, totalTokens: 220, model: "openai:gpt-4o" },
+            },
+          },
+        }),
+    });
+
+    const plan: QuarterPlan = { actions: [{ action: "work_hard" }] };
+    await useGameStore.getState().submitQuarter(plan);
+
+    expect(useAITelemetryStore.getState().session.totalTokens).toBe(730);
+    expect(useAITelemetryStore.getState().lastRequest?.totalTokens).toBe(580);
+    expect(useAITelemetryStore.getState().session.byAgent.narrative.totalTokens).toBe(
+      370,
+    );
   });
 
   it("submitChoice stores nextChoices for the next critical day", async () => {

@@ -1,5 +1,6 @@
 import { generateText, Output } from "ai";
 
+import { type AIUsageCollector, normalizeAIUsage } from "@/lib/aiUsage";
 import { getModel, resolveAgentModel } from "@/ai/provider";
 import { EventAgentOutputSchema } from "@/ai/schemas";
 import type {
@@ -11,46 +12,37 @@ import type { AIConfig } from "@/types/settings";
 
 const MAIMAI_INSTRUCTIONS = `
 ## 麦麦帖子后果分析
-
-当输入中包含 maimaiActivity 时，你必须分析每条玩家帖子和互动：
-
-对于每条玩家发的帖（playerPosts）：
-1. 分析帖子内容的性质（吐槽/爆料/炫耀/求助/正能量）
-2. 根据内容爆炸性、与当前游戏状态的相关性、时机，判断传播等级（ignored/small_buzz/trending/viral）
-3. 决定后果：对玩家属性的影响、对NPC好感的影响、是否暴露身份
-4. 生成1-5条匿名回复
-
-身份暴露判断依据：
-- 帖子是否涉及只有少数人知道的信息
-- 玩家声望（高声望更容易被识别）
-- 帖子是否与玩家近期行为高度关联
-
-对于点赞和评论（playerLikes, playerComments）：
-- 点赞=表态，可能影响相关NPC好感
-- 评论内容也需分析后果
+- 仅在存在 maimaiActivity 时分析玩家发帖、点赞和评论
+- 发帖需要判断传播等级、属性/NPC影响、是否暴露身份，并生成 1-5 条匿名回复
+- 点赞和评论也要给出对应后果
 `;
 
 const OFFER_INSTRUCTIONS = `
-## Offer 生成
-
-当输入中包含 offerRequested: true 时，生成一个 JobOffer：
-- companyName: 生成一个有创意的中文互联网公司名
-- companyProfile: 一句话描述（如"专注AI教育的独角兽"）
-- companyStatus: 根据当前经济环境决定（boom时更多expanding，winter时更多shrinking）
-
-将 Offer 放在 phoneMessages 中，app 为 "hrzhipin"。
+如输入明确包含 offerRequested:true，则在 hrzhipin 的 phoneMessages 中生成 offer 消息。
 `;
 
 const STRICT_JSON_INSTRUCTIONS = `
 
 结构化输出要求：
 - 只返回单个 JSON 对象
-- 不要输出 markdown、标题、分隔线、解释、额外说明
 - 顶层字段只能使用 events、phoneMessages、maimaiResults
-- events 中的每一项必须严格使用 schema 字段，例如 type、title、description、severity、triggersCritical
-- phoneMessages 中的每一项必须使用 app、content，sender 可选
+- events 使用 type、title、description、severity、triggersCritical
+- phoneMessages 使用 app、content，sender 可选
 - app 必须使用 schema 的英文枚举值，例如 dingding、maimai、jinritiaotiao、hrzhipin，不要写中文标签
 `;
+
+function hasMaimaiActivity(input: AgentInput): boolean {
+  const activity = input.maimaiActivity;
+  if (!activity) {
+    return false;
+  }
+
+  return (
+    activity.playerPosts.length > 0 ||
+    activity.playerLikes.length > 0 ||
+    activity.playerComments.length > 0
+  );
+}
 
 function buildSystemPrompt(input: AgentInput): string {
   const phase = input.state.phase;
@@ -91,7 +83,15 @@ function buildSystemPrompt(input: AgentInput): string {
 - 危机事件（低频高影响）：合伙人分歧、大客户流失、现金流断裂`;
   }
 
-  prompt += `${MAIMAI_INSTRUCTIONS}\n${OFFER_INSTRUCTIONS}\n${STRICT_JSON_INSTRUCTIONS}`;
+  const optionalInstructions = [
+    hasMaimaiActivity(input) ? MAIMAI_INSTRUCTIONS : "",
+    OFFER_INSTRUCTIONS,
+    STRICT_JSON_INSTRUCTIONS,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  prompt += `\n${optionalInstructions}`;
 
   return prompt;
 }
@@ -165,10 +165,12 @@ export async function runEventAgent(
   input: AgentInput,
   worldContext: WorldAgentOutput,
   aiConfig?: AIConfig,
+  onUsage?: AIUsageCollector,
 ): Promise<EventAgentOutput> {
-  const { output } = await generateText({
+  const modelSpec = resolveAgentModel("event", aiConfig);
+  const result = await generateText({
     model: getModel(
-      resolveAgentModel("event", aiConfig),
+      modelSpec,
       aiConfig?.apiKey,
       aiConfig?.baseUrl,
     ),
@@ -178,5 +180,11 @@ export async function runEventAgent(
     prompt: buildUserPrompt(input, worldContext),
   });
 
-  return output!;
+  onUsage?.({
+    agent: "event",
+    model: modelSpec,
+    ...normalizeAIUsage(result.usage),
+  });
+
+  return result.output!;
 }

@@ -2,6 +2,7 @@ import { runNarrativeAgent } from "@/ai/agents/narrative";
 import { validateChoices } from "@/ai/orchestration/conflict";
 import { AgentInputSchema } from "@/ai/schemas";
 import { canStartup, transitionToPhase2 } from "@/engine/phase-transition";
+import { createAIUsageCollector, createEmptyAIUsageSummary } from "@/lib/aiUsage";
 import type { AgentInput } from "@/types/agents";
 import type { Phase2Path } from "@/types/executive";
 import type { CriticalPeriodType, GameState } from "@/types/game";
@@ -35,6 +36,8 @@ export async function POST(request: Request) {
 
     const path = body.path ?? "startup";
     const newState = transitionToPhase2(currentState, path);
+    const aiUsage = createEmptyAIUsageSummary();
+    const collectUsage = createAIUsageCollector(aiUsage);
 
     const agentInput: AgentInput = { state: newState, recentHistory: [] };
     const worldContext = {
@@ -54,6 +57,7 @@ export async function POST(request: Request) {
       path === "executive" ? "玩家决定留在公司，转入高管路线。" : "玩家离职创业了。",
       true,
       body.aiConfig,
+      collectUsage,
     );
 
     let criticalChoices;
@@ -71,6 +75,7 @@ export async function POST(request: Request) {
       state: newState,
       narrative: narrativeOutput.narrative,
       criticalChoices,
+      aiUsage,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

@@ -15,6 +15,18 @@ vi.mock("@/ai/orchestration/quarterly", () => ({
     events: [],
     performanceRating: "A",
     salaryChange: 1000,
+    aiUsage: {
+      calls: 4,
+      inputTokens: 400,
+      outputTokens: 180,
+      totalTokens: 580,
+      byAgent: {
+        world: { calls: 1, inputTokens: 60, outputTokens: 20, totalTokens: 80, model: "openai:gpt-4o-mini" },
+        event: { calls: 1, inputTokens: 80, outputTokens: 40, totalTokens: 120, model: "openai:gpt-4o-mini" },
+        npc: { calls: 1, inputTokens: 120, outputTokens: 40, totalTokens: 160, model: "openai:gpt-4o" },
+        narrative: { calls: 1, inputTokens: 140, outputTokens: 80, totalTokens: 220, model: "openai:gpt-4o" },
+      },
+    },
     criticalChoices: [
       {
         choiceId: "crisis_d1_a",
@@ -39,6 +51,18 @@ vi.mock("@/ai/orchestration/quarterly", () => ({
     },
     narrative: "高管季度总结：你推进了业务，也被董事会盯上了",
     events: [],
+    aiUsage: {
+      calls: 4,
+      inputTokens: 320,
+      outputTokens: 160,
+      totalTokens: 480,
+      byAgent: {
+        world: { calls: 1, inputTokens: 50, outputTokens: 20, totalTokens: 70, model: "openai:gpt-4o-mini" },
+        event: { calls: 1, inputTokens: 70, outputTokens: 30, totalTokens: 100, model: "openai:gpt-4o-mini" },
+        npc: { calls: 1, inputTokens: 90, outputTokens: 40, totalTokens: 130, model: "openai:gpt-4o" },
+        narrative: { calls: 1, inputTokens: 110, outputTokens: 70, totalTokens: 180, model: "openai:gpt-4o" },
+      },
+    },
     criticalChoices: [],
   }),
 }));
@@ -49,6 +73,18 @@ vi.mock("@/ai/orchestration/critical", () => ({
     narrative: "关键期的某一天",
     nextChoices: [],
     isComplete: false,
+    aiUsage: {
+      calls: 3,
+      inputTokens: 180,
+      outputTokens: 90,
+      totalTokens: 270,
+      byAgent: {
+        world: { calls: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, model: "" },
+        event: { calls: 1, inputTokens: 60, outputTokens: 30, totalTokens: 90, model: "openai:gpt-4o-mini" },
+        npc: { calls: 1, inputTokens: 50, outputTokens: 20, totalTokens: 70, model: "openai:gpt-4o" },
+        narrative: { calls: 1, inputTokens: 70, outputTokens: 40, totalTokens: 110, model: "openai:gpt-4o" },
+      },
+    },
   }),
 }));
 
@@ -91,6 +127,7 @@ describe("POST /api/game/turn", () => {
     expect(json.criticalChoices).toBeDefined();
     expect(json.criticalChoices.length).toBe(1);
     expect(json.criticalChoices[0].label).toBe("紧急公关");
+    expect(json.aiUsage.totalTokens).toBe(580);
     expect(json.worldContext).toBeUndefined();
     expect(json.npcActions).toBeUndefined();
     expect(json.phoneMessages).toBeUndefined();
@@ -119,6 +156,7 @@ describe("POST /api/game/turn", () => {
     expect(res.status).toBe(200);
     expect(json.success).toBe(true);
     expect(Array.isArray(json.nextChoices)).toBe(true);
+    expect(json.aiUsage.totalTokens).toBe(270);
     expect(json.npcActions).toBeUndefined();
   });
 

@@ -3,17 +3,28 @@ import { POST } from "@/app/api/game/new/route";
 import { runNarrativeAgent } from "@/ai/agents/narrative";
 
 vi.mock("@/ai/agents/narrative", () => ({
-  runNarrativeAgent: vi.fn().mockResolvedValue({
-    narrative: "你入职了新公司。",
-    choices: [
-      {
-        choiceId: "onboarding_d1_a",
-        label: "参加培训",
-        staminaCost: 1,
-        effects: { statChanges: { professional: 2 } },
-        category: "学习",
-      },
-    ],
+  runNarrativeAgent: vi.fn().mockImplementation(async (...args: unknown[]) => {
+    const collector = args[9] as ((usage: unknown) => void) | undefined
+    collector?.({
+      agent: "narrative",
+      model: "openai:gpt-4o",
+      inputTokens: 120,
+      outputTokens: 80,
+      totalTokens: 200,
+    })
+
+    return {
+      narrative: "你入职了新公司。",
+      choices: [
+        {
+          choiceId: "onboarding_d1_a",
+          label: "参加培训",
+          staminaCost: 1,
+          effects: { statChanges: { professional: 2 } },
+          category: "学习",
+        },
+      ],
+    }
   }),
 }));
 
@@ -40,6 +51,7 @@ describe("POST /api/game/new", () => {
     expect(json.narrative).toBe("你入职了新公司。");
     expect(json.criticalChoices).toBeDefined();
     expect(json.criticalChoices.length).toBe(1);
+    expect(json.aiUsage.totalTokens).toBe(200);
   });
 
   it("creates the selected company and player name from intro params", async () => {
@@ -68,6 +80,7 @@ describe("POST /api/game/new", () => {
       "玩家入职了鼎信金融。",
       true,
       undefined,
+      expect.any(Function),
     );
   });
 
@@ -94,6 +107,7 @@ describe("POST /api/game/new", () => {
       "玩家入职了星云科技。",
       true,
       aiConfig,
+      expect.any(Function),
     );
   });
 

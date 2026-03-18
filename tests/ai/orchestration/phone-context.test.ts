@@ -33,4 +33,21 @@ describe("buildPhoneReplyContext", () => {
     expect(result).toContain("回复3");
     expect(result).not.toContain("回复2");
   });
+
+  it("truncates long message content to avoid bloating prompts", () => {
+    const longContent = "这是一个很长很长的原始消息内容".repeat(6);
+    const messages: Partial<PhoneMessage>[] = [
+      {
+        app: "xiaoxin",
+        sender: "王建国",
+        content: longContent,
+        selectedReply: "知道了",
+      },
+    ];
+
+    const result = buildPhoneReplyContext(messages as PhoneMessage[]);
+    expect(result).toContain("知道了");
+    expect(result).not.toContain(longContent);
+    expect(result).toContain("...");
+  });
 });

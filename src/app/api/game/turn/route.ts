@@ -47,6 +47,7 @@ export async function POST(request: Request) {
         narrative: result.narrative,
         nextChoices: result.nextChoices ?? [],
         isComplete: result.isComplete,
+        aiUsage: result.aiUsage,
       });
     }
 
@@ -71,6 +72,7 @@ export async function POST(request: Request) {
         performanceRating: result.performanceRating ?? null,
         salaryChange: result.salaryChange ?? null,
         criticalChoices: result.criticalChoices ?? [],
+        aiUsage: result.aiUsage,
       });
     }
 
@@ -87,6 +89,7 @@ export async function POST(request: Request) {
       performanceRating: result.performanceRating ?? null,
       salaryChange: result.salaryChange ?? null,
       criticalChoices: result.criticalChoices ?? [],
+      aiUsage: result.aiUsage,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";

@@ -1,5 +1,6 @@
 import { generateText, Output } from "ai";
 
+import { type AIUsageCollector, normalizeAIUsage } from "@/lib/aiUsage";
 import { getModel, resolveAgentModel } from "@/ai/provider";
 import {
   CRITICAL_PERIOD_CATEGORIES,
@@ -29,6 +30,17 @@ const STRICT_JSON_INSTRUCTIONS = `
 - 季度模式可返回 narrative + narrativeSummary，不要返回 choices
 - 关键期模式必须返回 narrative；是否返回 choices 由当前指令决定
 `;
+
+const NARRATIVE_DETAIL_LIMIT = 48;
+
+function truncateText(text: string, maxLength: number = NARRATIVE_DETAIL_LIMIT): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength - 3)}...`;
+}
 
 function buildSystemPrompt(
   input: AgentInput,
@@ -151,12 +163,14 @@ function buildUserPrompt(
     .join("、");
 
   const events = eventContext.events
-    .map((event) => `【${event.title}】${event.description}`)
+    .map((event) => `【${event.title}】${truncateText(event.description)}`)
     .join("\n");
 
   const npcActions = npcContext.npcActions
     .map((action) =>
-      `${action.npcName}${action.action}${action.dialogue ? `，说："${action.dialogue}"` : ""}`,
+      `${action.npcName}${action.action}${
+        action.dialogue ? `，说："${truncateText(action.dialogue)}"` : ""
+      }`,
     )
     .join("\n");
 
@@ -194,7 +208,7 @@ ${playerContext ? `\n关键期玩家选择：${playerContext}` : ""}
   if (eventContext.maimaiResults?.postResults?.length) {
     userPrompt += `\n\n## 麦麦动态后果`;
     for (const postResult of eventContext.maimaiResults.postResults) {
-      userPrompt += `\n- ${postResult.aiAnalysis}（传播等级: ${postResult.viralLevel}${
+      userPrompt += `\n- ${truncateText(postResult.aiAnalysis)}（传播等级: ${postResult.viralLevel}${
         postResult.consequences.identityExposed ? "，身份被暴露！" : ""
       }）`;
     }
@@ -213,10 +227,12 @@ export async function runNarrativeAgent(
   playerContext?: string,
   generateChoices: boolean = isCriticalPeriod,
   aiConfig?: AIConfig,
+  onUsage?: AIUsageCollector,
 ): Promise<NarrativeAgentOutput> {
-  const { output } = await generateText({
+  const modelSpec = resolveAgentModel("narrative", aiConfig);
+  const result = await generateText({
     model: getModel(
-      resolveAgentModel("narrative", aiConfig),
+      modelSpec,
       aiConfig?.apiKey,
       aiConfig?.baseUrl,
     ),
@@ -233,9 +249,15 @@ export async function runNarrativeAgent(
     ),
   });
 
-  if (isCriticalPeriod && generateChoices && !output?.choices?.length) {
+  onUsage?.({
+    agent: "narrative",
+    model: modelSpec,
+    ...normalizeAIUsage(result.usage),
+  });
+
+  if (isCriticalPeriod && generateChoices && !result.output?.choices?.length) {
     throw new Error("Narrative agent must return choices during active critical periods");
   }
 
-  return output!;
+  return result.output!;
 }
