@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       }
 
       const result = await withObservedStep(ctx, "run_critical_day_pipeline", async () =>
-        runCriticalDayPipeline(state, body.choice!, body.aiConfig),
+        runCriticalDayPipeline(state, body.choice!, body.aiConfig, ctx),
       );
       ctx.finish(200, { metadata: { branch: "critical", timeMode: state.timeMode } });
       return Response.json({
@@ -87,6 +87,7 @@ export async function POST(request: Request) {
           state,
           body.plan as ExecutiveQuarterPlan,
           body.aiConfig,
+          ctx,
         ),
       );
       ctx.finish(200, { metadata: { branch: "executive", timeMode: state.timeMode } });
@@ -107,6 +108,7 @@ export async function POST(request: Request) {
         state,
         body.plan as QuarterPlan,
         body.aiConfig,
+        ctx,
       ),
     );
     ctx.finish(200, { metadata: { branch: "quarterly", timeMode: state.timeMode } });

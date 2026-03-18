@@ -139,6 +139,7 @@ describe("POST /api/game/resign", () => {
       true,
       aiConfig,
       expect.any(Function),
+      expect.any(Object),
     );
   });
 });

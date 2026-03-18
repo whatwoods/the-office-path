@@ -1,6 +1,7 @@
 import { generateText, Output } from "ai";
 
 import { type AIUsageCollector, normalizeAIUsage } from "@/lib/aiUsage";
+import type { RequestContext } from "@/lib/observability/request-context";
 import { getModel, resolveAgentModel } from "@/ai/provider";
 import { WorldAgentOutputSchema } from "@/ai/schemas";
 import type { AgentInput, WorldAgentOutput } from "@/types/agents";
@@ -67,24 +68,60 @@ export async function runWorldAgent(
   input: AgentInput,
   aiConfig?: AIConfig,
   onUsage?: AIUsageCollector,
+  ctx?: RequestContext,
 ): Promise<WorldAgentOutput> {
   const modelSpec = resolveAgentModel("world", aiConfig);
-  const result = await generateText({
-    model: getModel(
-      modelSpec,
-      aiConfig?.apiKey,
-      aiConfig?.baseUrl,
-    ),
-    output: Output.object({ schema: WorldAgentOutputSchema }),
-    system: buildSystemPrompt(input),
-    prompt: buildUserPrompt(input),
-  });
-
-  onUsage?.({
-    agent: "world",
+  const provider = modelSpec.split(":")[0];
+  const startedAt = Date.now();
+  ctx?.log.info("step.start", "world agent started", {
+    step: "run_world_agent",
     model: modelSpec,
-    ...normalizeAIUsage(result.usage),
+    provider,
   });
 
-  return result.output!;
+  try {
+    const result = await generateText({
+      model: getModel(
+        modelSpec,
+        aiConfig?.apiKey,
+        aiConfig?.baseUrl,
+      ),
+      output: Output.object({ schema: WorldAgentOutputSchema }),
+      system: buildSystemPrompt(input),
+      prompt: buildUserPrompt(input),
+    });
+    const usage = normalizeAIUsage(result.usage);
+
+    onUsage?.({
+      agent: "world",
+      model: modelSpec,
+      ...usage,
+    });
+
+    ctx?.log.info("step.finish", "world agent finished", {
+      step: "run_world_agent",
+      durationMs: Date.now() - startedAt,
+      model: modelSpec,
+      provider,
+      aiUsage: {
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        totalTokens: usage.totalTokens,
+      },
+    });
+
+    return result.output!;
+  } catch (error) {
+    ctx?.log.error("step.error", "world agent failed", {
+      step: "run_world_agent",
+      durationMs: Date.now() - startedAt,
+      errorType: "unexpected",
+      errorName: error instanceof Error ? error.name : undefined,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+      model: modelSpec,
+      provider,
+    });
+    throw error;
+  }
 }

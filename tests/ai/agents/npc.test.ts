@@ -8,6 +8,7 @@ vi.mock("ai", () => ({
 import { generateText } from "ai";
 
 import { runNPCAgent } from "@/ai/agents/npc";
+import { createRequestContext } from "@/lib/observability/request-context";
 import { createNewGame } from "@/engine/state";
 import type {
   AgentInput,
@@ -15,6 +16,7 @@ import type {
   WorldAgentOutput,
 } from "@/types/agents";
 import type { ActionAllocation } from "@/types/actions";
+import { captureObservabilityLogs } from "../../helpers/observability";
 
 const mockedGenerateText = vi.mocked(generateText);
 
@@ -83,6 +85,34 @@ describe("runNPCAgent", () => {
 
     expect(result).toEqual(mockOutput);
     expect(mockedGenerateText).toHaveBeenCalledOnce();
+  });
+
+  it("logs model and aiUsage for successful npc-agent calls", async () => {
+    mockedGenerateText.mockResolvedValueOnce({
+      output: { npcActions: [], chatMessages: [] },
+      usage: { inputTokens: 14, outputTokens: 7, totalTokens: 21 },
+    } as never);
+
+    const logs = captureObservabilityLogs();
+    const ctx = createRequestContext("/api/game/turn", "POST");
+
+    await runNPCAgent(
+      makeInput(),
+      worldContext,
+      eventContext,
+      playerActions,
+      undefined,
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    const parsed = logs.all();
+    expect(
+      parsed.some((entry) => entry.step === "run_npc_agent" && entry.event === "step.finish"),
+    ).toBe(true);
+    expect(parsed.some((entry) => entry.model === "openai:gpt-4o")).toBe(true);
+    logs.restore();
   });
 
   it("includes NPC profiles in prompt", async () => {

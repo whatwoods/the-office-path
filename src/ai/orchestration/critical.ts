@@ -117,15 +117,26 @@ export async function runCriticalDayPipeline(
     ctx,
     "run_npc_agent",
     () =>
-      runNPCAgent(
-        agentInput,
-        worldContext,
-        { events: [], phoneMessages: [] },
-        [],
-        playerContext,
-        aiConfig,
-        collectUsage,
-      ),
+      ctx
+        ? runNPCAgent(
+            agentInput,
+            worldContext,
+            { events: [], phoneMessages: [] },
+            [],
+            playerContext,
+            aiConfig,
+            collectUsage,
+            ctx,
+          )
+        : runNPCAgent(
+            agentInput,
+            worldContext,
+            { events: [], phoneMessages: [] },
+            [],
+            playerContext,
+            aiConfig,
+            collectUsage,
+          ),
     {
       currentDay: storyState.criticalPeriod?.currentDay ?? null,
     },
@@ -145,12 +156,20 @@ export async function runCriticalDayPipeline(
     ctx,
     "run_event_agent",
     () =>
-      runEventAgent(
-        agentInput,
-        worldContext,
-        aiConfig,
-        collectUsage,
-      ),
+      ctx
+        ? runEventAgent(
+            agentInput,
+            worldContext,
+            aiConfig,
+            collectUsage,
+            ctx,
+          )
+        : runEventAgent(
+            agentInput,
+            worldContext,
+            aiConfig,
+            collectUsage,
+          ),
   );
 
   await observeStep(ctx, "apply_event_effects", () => {
@@ -183,18 +202,32 @@ export async function runCriticalDayPipeline(
     ctx,
     "run_narrative_agent",
     () =>
-      runNarrativeAgent(
-        agentInput,
-        worldContext,
-        eventOutput,
-        npcOutput,
-        [],
-        true,
-        playerContext,
-        isCriticalStill,
-        aiConfig,
-        collectUsage,
-      ),
+      ctx
+        ? runNarrativeAgent(
+            agentInput,
+            worldContext,
+            eventOutput,
+            npcOutput,
+            [],
+            true,
+            playerContext,
+            isCriticalStill,
+            aiConfig,
+            collectUsage,
+            ctx,
+          )
+        : runNarrativeAgent(
+            agentInput,
+            worldContext,
+            eventOutput,
+            npcOutput,
+            [],
+            true,
+            playerContext,
+            isCriticalStill,
+            aiConfig,
+            collectUsage,
+          ),
     {
       isCriticalStill,
     },

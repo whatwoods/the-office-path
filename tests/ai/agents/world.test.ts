@@ -8,8 +8,10 @@ vi.mock("ai", () => ({
 import { generateText } from "ai";
 
 import { runWorldAgent } from "@/ai/agents/world";
+import { createRequestContext } from "@/lib/observability/request-context";
 import type { AgentInput } from "@/types/agents";
 import { createNewGame } from "@/engine/state";
+import { captureObservabilityLogs } from "../../helpers/observability";
 
 const mockedGenerateText = vi.mocked(generateText);
 
@@ -35,6 +37,30 @@ describe("runWorldAgent", () => {
 
     expect(result).toEqual(mockOutput);
     expect(mockedGenerateText).toHaveBeenCalledOnce();
+  });
+
+  it("logs model and aiUsage for successful world-agent calls", async () => {
+    mockedGenerateText.mockResolvedValueOnce({
+      output: {
+        economy: "stable",
+        trends: [],
+        companyStatus: "stable",
+        newsItems: [],
+      },
+      usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
+    } as never);
+
+    const logs = captureObservabilityLogs();
+    const ctx = createRequestContext("/api/game/turn", "POST");
+
+    await runWorldAgent(makeInput(), undefined, undefined, ctx);
+
+    const parsed = logs.all();
+    expect(
+      parsed.some((entry) => entry.step === "run_world_agent" && entry.event === "step.finish"),
+    ).toBe(true);
+    expect(parsed.some((entry) => entry.model === "openai:gpt-4o-mini")).toBe(true);
+    logs.restore();
   });
 
   it("passes game phase info in the prompt", async () => {

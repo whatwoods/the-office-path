@@ -290,6 +290,7 @@ async function maybeGenerateCriticalChoices(
   forcedCriticalType: CriticalPeriodType | null | undefined,
   aiConfig?: AIConfig,
   aiUsage?: AIUsageSummary,
+  ctx?: RequestContext,
 ): Promise<CriticalChoice[] | undefined> {
   const criticalEvent = eventOutput.events.find(
     (event) => event.triggersCritical && event.criticalType,
@@ -324,6 +325,7 @@ async function maybeGenerateCriticalChoices(
     true,
     aiConfig,
     collectUsage,
+    ctx,
   );
 
   if (!openingChoices.choices || !state.criticalPeriod) {
@@ -361,7 +363,10 @@ async function finalizePipeline({
   const worldOutput = await observeStep(
     ctx,
     "run_world_agent",
-    () => runWorldAgent(agentInput, aiConfig, collectUsage),
+    () =>
+      ctx
+        ? runWorldAgent(agentInput, aiConfig, collectUsage, ctx)
+        : runWorldAgent(agentInput, aiConfig, collectUsage),
     {
       phase: settledState.phase,
       currentQuarter: settledState.currentQuarter,
@@ -372,12 +377,20 @@ async function finalizePipeline({
     ctx,
     "run_event_agent",
     () =>
-      runEventAgent(
-        agentInput,
-        worldOutput,
-        aiConfig,
-        collectUsage,
-      ),
+      ctx
+        ? runEventAgent(
+            agentInput,
+            worldOutput,
+            aiConfig,
+            collectUsage,
+            ctx,
+          )
+        : runEventAgent(
+            agentInput,
+            worldOutput,
+            aiConfig,
+            collectUsage,
+          ),
     {
       phase: settledState.phase,
       currentQuarter: settledState.currentQuarter,
@@ -412,15 +425,26 @@ async function finalizePipeline({
     ctx,
     "run_npc_agent",
     () =>
-      runNPCAgent(
-        agentInput,
-        worldOutput,
-        eventOutput,
-        playerActions,
-        phoneReplyContext,
-        aiConfig,
-        collectUsage,
-      ),
+      ctx
+        ? runNPCAgent(
+            agentInput,
+            worldOutput,
+            eventOutput,
+            playerActions,
+            phoneReplyContext,
+            aiConfig,
+            collectUsage,
+            ctx,
+          )
+        : runNPCAgent(
+            agentInput,
+            worldOutput,
+            eventOutput,
+            playerActions,
+            phoneReplyContext,
+            aiConfig,
+            collectUsage,
+          ),
     {
       playerActionCount: playerActions.length,
     },
@@ -445,18 +469,32 @@ async function finalizePipeline({
     ctx,
     "run_narrative_agent",
     () =>
-      runNarrativeAgent(
-        agentInput,
-        worldOutput,
-        eventOutput,
-        npcOutput,
-        playerActions,
-        false,
-        phoneReplyContext,
-        undefined,
-        aiConfig,
-        collectUsage,
-      ),
+      ctx
+        ? runNarrativeAgent(
+            agentInput,
+            worldOutput,
+            eventOutput,
+            npcOutput,
+            playerActions,
+            false,
+            phoneReplyContext,
+            undefined,
+            aiConfig,
+            collectUsage,
+            ctx,
+          )
+        : runNarrativeAgent(
+            agentInput,
+            worldOutput,
+            eventOutput,
+            npcOutput,
+            playerActions,
+            false,
+            phoneReplyContext,
+            undefined,
+            aiConfig,
+            collectUsage,
+          ),
     {
       messageCount: allMessages.length,
     },
@@ -493,6 +531,7 @@ async function finalizePipeline({
         forcedCriticalType,
         aiConfig,
         aiUsage,
+        ctx,
       ),
     {
       forcedCriticalType: forcedCriticalType ?? null,

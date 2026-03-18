@@ -8,8 +8,10 @@ vi.mock("ai", () => ({
 import { generateText } from "ai";
 
 import { runEventAgent } from "@/ai/agents/event";
+import { createRequestContext } from "@/lib/observability/request-context";
 import type { AgentInput, WorldAgentOutput } from "@/types/agents";
 import { createNewGame } from "@/engine/state";
+import { captureObservabilityLogs } from "../../helpers/observability";
 
 const mockedGenerateText = vi.mocked(generateText);
 
@@ -53,6 +55,25 @@ describe("runEventAgent", () => {
 
     expect(result).toEqual(mockOutput);
     expect(mockedGenerateText).toHaveBeenCalledOnce();
+  });
+
+  it("logs model and aiUsage for successful event-agent calls", async () => {
+    mockedGenerateText.mockResolvedValueOnce({
+      output: { events: [], phoneMessages: [] },
+      usage: { inputTokens: 12, outputTokens: 6, totalTokens: 18 },
+    } as never);
+
+    const logs = captureObservabilityLogs();
+    const ctx = createRequestContext("/api/game/turn", "POST");
+
+    await runEventAgent(makeInput(), worldContext, undefined, undefined, ctx);
+
+    const parsed = logs.all();
+    expect(
+      parsed.some((entry) => entry.step === "run_event_agent" && entry.event === "step.finish"),
+    ).toBe(true);
+    expect(parsed.some((entry) => entry.model === "openai:gpt-4o-mini")).toBe(true);
+    logs.restore();
   });
 
   it("includes world context in prompt", async () => {

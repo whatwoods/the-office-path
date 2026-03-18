@@ -8,6 +8,7 @@ vi.mock("ai", () => ({
 import { generateText } from "ai";
 
 import { runNarrativeAgent } from "@/ai/agents/narrative";
+import { createRequestContext } from "@/lib/observability/request-context";
 import { createNewGame } from "@/engine/state";
 import type {
   AgentInput,
@@ -16,6 +17,7 @@ import type {
   WorldAgentOutput,
 } from "@/types/agents";
 import type { ActionAllocation } from "@/types/actions";
+import { captureObservabilityLogs } from "../../helpers/observability";
 
 const mockedGenerateText = vi.mocked(generateText);
 
@@ -324,5 +326,34 @@ describe("runNarrativeAgent", () => {
         true,
       ),
     ).rejects.toThrow("Narrative agent must return choices during active critical periods");
+  });
+
+  it("logs step.error when narrative generation fails", async () => {
+    mockedGenerateText.mockRejectedValueOnce(new Error("provider down"));
+    const logs = captureObservabilityLogs();
+    const ctx = createRequestContext("/api/game/turn", "POST");
+
+    await expect(
+      runNarrativeAgent(
+        makeInput(),
+        worldCtx,
+        eventCtx,
+        npcCtx,
+        actions,
+        false,
+        undefined,
+        false,
+        undefined,
+        undefined,
+        ctx,
+      ),
+    ).rejects.toThrow("provider down");
+
+    expect(
+      logs.all().some(
+        (entry) => entry.event === "step.error" && entry.step === "run_narrative_agent",
+      ),
+    ).toBe(true);
+    logs.restore();
   });
 });

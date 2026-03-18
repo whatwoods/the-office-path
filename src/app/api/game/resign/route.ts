@@ -82,6 +82,7 @@ export async function POST(request: Request) {
           true,
           body.aiConfig,
           collectUsage,
+          ctx,
         ),
       {
         metadata: {

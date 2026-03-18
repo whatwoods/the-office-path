@@ -216,7 +216,12 @@ describe("POST /api/game/turn", () => {
 
     await POST(req);
 
-    expect(mockedRunQuarterlyPipeline).toHaveBeenCalledWith(state, plan, aiConfig);
+    expect(mockedRunQuarterlyPipeline).toHaveBeenCalledWith(
+      state,
+      plan,
+      aiConfig,
+      expect.any(Object),
+    );
   });
 
   it("passes aiConfig to the critical-day pipeline when provided", async () => {
@@ -245,6 +250,7 @@ describe("POST /api/game/turn", () => {
       state,
       choice,
       aiConfig,
+      expect.any(Object),
     );
   });
 
@@ -324,6 +330,7 @@ describe("POST /api/game/turn", () => {
       state,
       plan,
       aiConfig,
+      expect.any(Object),
     );
   });
 });

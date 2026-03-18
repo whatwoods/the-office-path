@@ -1,6 +1,7 @@
 import { generateText, Output } from "ai";
 
 import { type AIUsageCollector, normalizeAIUsage } from "@/lib/aiUsage";
+import type { RequestContext } from "@/lib/observability/request-context";
 import { getModel, resolveAgentModel } from "@/ai/provider";
 import { NPCAgentOutputSchema } from "@/ai/schemas";
 import type {
@@ -247,31 +248,67 @@ export async function runNPCAgent(
   playerContext?: string,
   aiConfig?: AIConfig,
   onUsage?: AIUsageCollector,
+  ctx?: RequestContext,
 ): Promise<NPCAgentOutput> {
   const modelSpec = resolveAgentModel("npc", aiConfig);
-  const result = await generateText({
-    model: getModel(
-      modelSpec,
-      aiConfig?.apiKey,
-      aiConfig?.baseUrl,
-    ),
-    output: Output.object({ schema: NPCAgentOutputSchema }),
-    temperature: 0,
-    system: buildSystemPrompt(input),
-    prompt: buildUserPrompt(
-      input,
-      worldContext,
-      eventContext,
-      playerActions,
-      playerContext,
-    ),
-  });
-
-  onUsage?.({
-    agent: "npc",
+  const provider = modelSpec.split(":")[0];
+  const startedAt = Date.now();
+  ctx?.log.info("step.start", "npc agent started", {
+    step: "run_npc_agent",
     model: modelSpec,
-    ...normalizeAIUsage(result.usage),
+    provider,
   });
 
-  return result.output!;
+  try {
+    const result = await generateText({
+      model: getModel(
+        modelSpec,
+        aiConfig?.apiKey,
+        aiConfig?.baseUrl,
+      ),
+      output: Output.object({ schema: NPCAgentOutputSchema }),
+      temperature: 0,
+      system: buildSystemPrompt(input),
+      prompt: buildUserPrompt(
+        input,
+        worldContext,
+        eventContext,
+        playerActions,
+        playerContext,
+      ),
+    });
+    const usage = normalizeAIUsage(result.usage);
+
+    onUsage?.({
+      agent: "npc",
+      model: modelSpec,
+      ...usage,
+    });
+
+    ctx?.log.info("step.finish", "npc agent finished", {
+      step: "run_npc_agent",
+      durationMs: Date.now() - startedAt,
+      model: modelSpec,
+      provider,
+      aiUsage: {
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        totalTokens: usage.totalTokens,
+      },
+    });
+
+    return result.output!;
+  } catch (error) {
+    ctx?.log.error("step.error", "npc agent failed", {
+      step: "run_npc_agent",
+      durationMs: Date.now() - startedAt,
+      errorType: "unexpected",
+      errorName: error instanceof Error ? error.name : undefined,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
+      model: modelSpec,
+      provider,
+    });
+    throw error;
+  }
 }

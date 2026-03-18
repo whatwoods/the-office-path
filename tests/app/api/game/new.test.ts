@@ -104,6 +104,7 @@ describe("POST /api/game/new", () => {
       true,
       undefined,
       expect.any(Function),
+      expect.any(Object),
     );
   });
 
@@ -131,6 +132,7 @@ describe("POST /api/game/new", () => {
       true,
       aiConfig,
       expect.any(Function),
+      expect.any(Object),
     );
   });
 
