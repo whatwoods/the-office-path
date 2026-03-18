@@ -22,7 +22,7 @@ export function NameInput({ onSubmit }: NameInputProps) {
   }
 
   return (
-    <div className="flex flex-col items-center gap-8">
+    <div className="flex w-full max-w-sm flex-col items-center gap-8">
       <p className="text-lg text-[var(--pixel-text)]">你叫什么名字？</p>
       <input
         type="text"
@@ -32,7 +32,7 @@ export function NameInput({ onSubmit }: NameInputProps) {
         placeholder="输入你的名字"
         maxLength={10}
         autoFocus
-        className="pixel-border w-64 bg-[var(--pixel-bg-light)] px-4 py-3 text-center text-lg text-[var(--pixel-text-bright)] placeholder:text-[var(--pixel-text-dim)] outline-none"
+        className="pixel-border w-full max-w-64 bg-[var(--pixel-bg-light)] px-4 py-3 text-center text-lg text-[var(--pixel-text-bright)] placeholder:text-[var(--pixel-text-dim)] outline-none"
       />
       <PixelButton onClick={handleSubmit}>
         {name.trim() ? '确认' : '跳过'}

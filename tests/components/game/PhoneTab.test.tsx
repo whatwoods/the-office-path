@@ -56,6 +56,6 @@ describe('PhoneTab', () => {
     useGameStore.setState({ activePhoneApp: 'xiaoxin' })
     render(<PhoneTab />)
 
-    expect(screen.getByText('返回')).toBeDefined()
+    expect(screen.getByRole('button', { name: '← 返回' })).toBeDefined()
   })
 })

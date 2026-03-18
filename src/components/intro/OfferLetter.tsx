@@ -26,7 +26,7 @@ export function OfferLetter({
 
   return (
     <div
-      className="pixel-border w-full max-w-lg bg-[var(--pixel-bg-light)] p-8"
+      className="pixel-border w-full max-w-lg bg-[var(--pixel-bg-light)] p-4 sm:p-8"
       style={{ animation: 'offer-fade-in 0.6s ease-out' }}
     >
       <h2 className="mb-6 text-center text-xl text-[var(--pixel-text-amber)]">

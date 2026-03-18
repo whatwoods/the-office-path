@@ -47,14 +47,16 @@ export function PhoneAppView() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b-2 border-[var(--pixel-border)] p-2">
+      <div className="flex items-center gap-2 border-b-2 border-[var(--pixel-border)] p-2 sm:p-3">
         <button
           onClick={() => setActivePhoneApp(null)}
-          className="pixel-btn px-2 py-0.5 text-xs"
+          className="pixel-btn px-2 py-1 text-xs sm:text-sm"
         >
-          返回
+          ← 返回
         </button>
-        <span className="text-sm">{APP_LABELS[activeApp]}</span>
+        <span className="flex-1 text-center text-sm">
+          {APP_LABELS[activeApp] ?? activeApp}
+        </span>
       </div>
       <div className="flex-1 overflow-y-auto p-2">
         <AppContent app={activeApp} />

@@ -132,8 +132,8 @@ describe('GamePage', () => {
 
     expect(screen.queryByText('请使用电脑访问')).toBeNull()
     expect(screen.getByTestId('top-status-bar')).toBeDefined()
-    expect(screen.getByTestId('story-panel')).toBeDefined()
+    expect(screen.getAllByTestId('story-panel').length).toBeGreaterThan(0)
     expect(screen.getByTestId('dashboard-panel')).toBeDefined()
-    expect(screen.getByTestId('action-bar')).toBeDefined()
+    expect(screen.getAllByTestId('action-bar').length).toBeGreaterThan(0)
   })
 })

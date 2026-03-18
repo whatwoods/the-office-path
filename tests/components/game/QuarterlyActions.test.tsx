@@ -38,6 +38,31 @@ describe('QuarterlyActions', () => {
     expect(screen.getByText('摸鱼休息')).toBeDefined()
   })
 
+  it('uses a horizontally scrollable action strip on mobile', () => {
+    render(
+      <QuarterlyActions
+        phase={1}
+        phase2Path={null}
+        level="L6_tech"
+        allocations={allocations}
+        staminaUsed={0}
+        staminaMax={10}
+        npcs={[]}
+        onAllocate={onAllocate}
+        onDeallocate={onDeallocate}
+      />,
+    )
+
+    const actionStrip = screen.getByText('埋头工作').closest('button')?.parentElement
+    const workCard = screen.getByText('埋头工作').closest('button')
+    const resignCard = screen.getByText('辞职创业').closest('button')
+
+    expect(actionStrip?.className).toContain('overflow-x-auto')
+    expect(actionStrip?.className).toContain('min-[1024px]:flex-wrap')
+    expect(workCard?.className).toContain('shrink-0')
+    expect(resignCard?.className).toContain('shrink-0')
+  })
+
   it('shows resign button only at L6+', () => {
     const { rerender } = render(
       <QuarterlyActions

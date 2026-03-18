@@ -22,6 +22,21 @@ describe('TopStatusBar', () => {
     expect(screen.getByText('打工之道')).toBeDefined()
   })
 
+  it('uses a single-row mobile shell with desktop-only verbose details', () => {
+    render(<TopStatusBar />)
+
+    const shell = screen.getByTestId('top-status-bar').firstElementChild as HTMLElement
+    const title = screen.getByText('打工之道')
+    const jobInfo = screen.getByText(/L1/)
+
+    expect(shell.className).toContain('flex-row')
+    expect(shell.className).toContain('h-10')
+    expect(title.className).toContain('hidden')
+    expect(title.className).toContain('min-[1024px]:inline')
+    expect(jobInfo.className).toContain('hidden')
+    expect(jobInfo.className).toContain('min-[1024px]:inline')
+  })
+
   it('keeps save and settings controls in the responsive bar shell', () => {
     render(<TopStatusBar />)
 

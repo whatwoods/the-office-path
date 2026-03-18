@@ -42,7 +42,7 @@ export default function IntroPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--pixel-bg)] px-6">
+    <div className="flex min-h-[100dvh] items-center justify-center overflow-y-auto bg-[var(--pixel-bg)] px-4 pb-safe sm:px-6">
       <div className="fixed inset-x-0 top-0 z-[60]">
         <ErrorBanner />
       </div>

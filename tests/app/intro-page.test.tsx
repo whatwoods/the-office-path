@@ -86,6 +86,17 @@ describe("IntroPage", () => {
     expect(screen.getByText("提交名字")).toBeDefined();
   });
 
+  it("uses a scrollable safe-area layout on mobile", () => {
+    const { container } = render(<IntroPage />);
+    const root = container.firstElementChild as HTMLElement;
+
+    expect(root.className).toContain("min-h-[100dvh]");
+    expect(root.className).toContain("overflow-y-auto");
+    expect(root.className).toContain("px-4");
+    expect(root.className).toContain("pb-safe");
+    expect(root.className).toContain("sm:px-6");
+  });
+
   it("collects intro choices and starts a game before entering /game", async () => {
     const user = userEvent.setup();
     const newGame = vi.fn(

@@ -41,17 +41,17 @@ export function MajorSelect({ onSelect }: MajorSelectProps) {
   const [selected, setSelected] = useState<MajorType | null>(null)
 
   return (
-    <div className="flex flex-col items-center gap-8">
+    <div className="flex w-full max-w-lg flex-col items-center gap-6 px-4 sm:gap-8">
       <p className="text-center text-lg text-[var(--pixel-text)]">
         四年的大学生活，你学的是……
       </p>
-      <div className="flex flex-wrap justify-center gap-6">
+      <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
         {MAJOR_OPTIONS.map((option) => (
           <PixelCard
             key={option.key}
             selected={selected === option.key}
             onClick={() => setSelected(option.key)}
-            className="w-56 cursor-pointer p-6 text-center transition-transform hover:-translate-y-1"
+            className="w-full max-w-56 cursor-pointer p-6 text-center transition-transform hover:-translate-y-1 sm:w-56"
           >
             <div className="mb-3 text-4xl">{option.icon}</div>
             <h3 className="mb-2 text-sm text-[var(--pixel-text-bright)]">

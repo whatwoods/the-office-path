@@ -1,3 +1,4 @@
+import type { LanguageModel } from "ai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -8,7 +9,7 @@ export type { AIConfig } from "@/types/settings";
 
 export type ModelSpec = `${AIProvider}:${string}`;
 
-type ModelProvider = (modelId: string) => unknown;
+type ModelProvider = (modelId: string) => LanguageModel;
 
 function getProviderApiKey(providerName: AIProvider): string {
   const envApiKey = PROVIDER_CATALOG[providerName].envApiKey;
@@ -67,7 +68,7 @@ export function getModel(
   spec: ModelSpec,
   dynamicApiKey?: string,
   dynamicBaseUrl?: string,
-) {
+): LanguageModel {
   if (!spec.includes(":")) {
     throw new Error(
       `Invalid model spec: "${spec}". Expected format "provider:model-id"`,

@@ -106,7 +106,7 @@ export function QuarterlyActions({
 
   return (
     <div className="relative">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center gap-2 overflow-x-auto min-[1024px]:flex-wrap min-[1024px]:overflow-x-visible">
         {actions.map(card => {
           const cost = ACTION_STAMINA_COST[card.action]
           const count = getCount(card.action)
@@ -124,7 +124,7 @@ export function QuarterlyActions({
                   handleClick(card.action)
                 }
               }}
-              className="pixel-btn relative flex flex-col items-center gap-1 px-3 py-2"
+              className="pixel-btn relative flex shrink-0 flex-col items-center gap-1 px-3 py-2"
             >
               <span className="text-lg">{card.icon}</span>
               <span className="text-[10px]">{card.label}</span>
@@ -145,7 +145,7 @@ export function QuarterlyActions({
                 onAllocate({ action: 'resign_startup' })
               }
             }}
-            className="pixel-btn border-[var(--pixel-red)] px-3 py-2 text-[var(--pixel-red)]"
+            className="pixel-btn shrink-0 border-[var(--pixel-red)] px-3 py-2 text-[var(--pixel-red)]"
           >
             <span className="text-lg">🚀</span>
             <span className="block text-[10px]">辞职创业</span>
